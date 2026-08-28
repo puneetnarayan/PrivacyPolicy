@@ -1,6 +1,19 @@
 // Vimshottari Mahadasha / Antardasha / Pratyantardasha calculation from Moon's
 // birth longitude + birth datetime. Standard KP/Vedic timing method.
 
+// Single source of truth for how the dasha timeline is derived — kept as data
+// so the UI/exports can show the exact rule instead of duplicating this text.
+const DASHA_LOGIC_TEXT = [
+  ['Vimshottari Dasha — Logic and Sequence'],
+  [''],
+  ['1. Find the Moon\'s nakshatra (27 equal 13°20\' divisions of the zodiac) from its birth longitude, and that nakshatra\'s ruling star lord — this is the first Mahadasha lord.'],
+  ['2. Find how far the Moon has traveled through that nakshatra (elapsed fraction) to compute the balance of the first Mahadasha already elapsed at birth vs. remaining.'],
+  ['3. The 9 Mahadasha lords run in a fixed cycle (Ketu, Venus, Sun, Moon, Mars, Rahu, Jupiter, Saturn, Mercury) with fixed total years each (adding to 120), starting from the birth lord\'s remaining balance and then continuing full-length through the rest of the cycle.'],
+  ['4. Each Mahadasha is subdivided into 9 Antardashas, each Antardasha into 9 Pratyantardashas — always the same 9-lord cycle, started from that period\'s own lord, with each sub-period\'s length proportional to its lord\'s share of the 120-year cycle.'],
+  [''],
+  ['This produces a full nested timeline (Mahadasha > Antardasha > Pratyantardasha) with exact start/end dates, used throughout KP to time when a house\'s significators (and hence its promised events) are expected to fructify.']
+];
+
 function addYearsFraction(date, years) {
   const msPerYear = 365.25 * 24 * 60 * 60 * 1000;
   return new Date(date.getTime() + years * msPerYear);
@@ -107,5 +120,5 @@ function findActivePeriod(dashaResult, onDate) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { computeVimshottariDasha, findActivePeriod };
+  module.exports = { computeVimshottariDasha, findActivePeriod, DASHA_LOGIC_TEXT };
 }

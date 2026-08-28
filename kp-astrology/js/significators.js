@@ -10,6 +10,22 @@
 //   planets: [{ name, sign, house, starLord, subLord, subSubLord, retrograde }]
 //   cusps:   [{ house, sign, starLord, subLord, subSubLord }]  (house 1-12)
 
+// Single source of truth for how significators are derived — kept as data so
+// the UI/exports can show the exact rule instead of duplicating this text.
+const SIGNIFICATOR_LOGIC_TEXT = [
+  ['KP Significators — Logic and Sequence'],
+  [''],
+  ['For each house (1-12), significators are collected in this order, strongest to weakest:'],
+  ['1. Occupants: planets physically placed in that house.'],
+  ['2. Owners: the ruling planet of the house cusp\'s sign (its traditional sign lord).'],
+  ['3. Star Lord of Occupants: the nakshatra star lord of each occupant planet from step 1.'],
+  ['4. Star Lord of Owners: the nakshatra star lord of each owner planet from step 2.'],
+  [''],
+  ['The four levels are combined and de-duplicated into one "All Significators" list per house — the planets that can deliver events tied to that house.'],
+  [''],
+  ['Caveat: this is the standard 4-level hierarchy (occupation/ownership/star-lord), using cuspal sign lord for ownership. It does not additionally weigh the cusp\'s own sub-lord as a separate signifying layer.']
+];
+
 function buildSignificators(planets, cusps) {
   const byHouse = {};
   for (let h = 1; h <= 12; h++) {
@@ -63,5 +79,5 @@ function planetSignificatorHouses(significatorsByHouse, planetName) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { buildSignificators, planetSignificatorHouses };
+  module.exports = { buildSignificators, planetSignificatorHouses, SIGNIFICATOR_LOGIC_TEXT };
 }

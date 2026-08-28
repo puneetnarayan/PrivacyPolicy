@@ -285,8 +285,18 @@ function runComputations() {
   }
 }
 
+// Renders any of the *_LOGIC_TEXT arrays (from significators.js, rulingPlanets.js,
+// dasha.js, lifePromise.js) as a collapsible block, so each module's logic is
+// shown once, sourced from that module, instead of being retyped in ui.js.
+function renderLogicDetails(logicTextRows) {
+  return '<details><summary>Logic and sequence used below</summary><pre>' +
+    logicTextRows.map(row => row[0] || '').join('\n') +
+    '</pre></details>';
+}
+
 function renderSignificators(byHouse) {
-  let html = '<table><thead><tr><th>House</th><th>Cusp Sign</th><th>Occupants</th><th>Owners</th><th>Star Lord of Occupants</th><th>Star Lord of Owners</th><th>All Significators</th></tr></thead><tbody>';
+  let html = renderLogicDetails(SIGNIFICATOR_LOGIC_TEXT);
+  html += '<table><thead><tr><th>House</th><th>Cusp Sign</th><th>Occupants</th><th>Owners</th><th>Star Lord of Occupants</th><th>Star Lord of Owners</th><th>All Significators</th></tr></thead><tbody>';
   for (let h = 1; h <= 12; h++) {
     const s = byHouse[h];
     html += `<tr><td>${h}</td><td>${s.cuspSign || ''}</td><td>${s.occupants.join(', ')}</td><td>${s.owners.join(', ')}</td><td>${s.starLordOfOccupants.join(', ')}</td><td>${s.starLordOfOwners.join(', ')}</td><td>${s.allSignificators.join(', ')}</td></tr>`;
@@ -296,7 +306,7 @@ function renderSignificators(byHouse) {
 }
 
 function renderRulingPlanets(rp) {
-  el('rulingPlanetsOutput').innerHTML = `
+  el('rulingPlanetsOutput').innerHTML = renderLogicDetails(RULING_PLANET_LOGIC_TEXT) + `
     <p><strong>Day Lord:</strong> ${rp.dayLord}</p>
     <p><strong>Ascendant Lords:</strong> Sign: ${rp.ascendantLords.signLord}, Star: ${rp.ascendantLords.starLord}, Sub: ${rp.ascendantLords.subLord}</p>
     <p><strong>Moon Lords:</strong> Sign: ${rp.moonLords.signLord}, Star: ${rp.moonLords.starLord}, Sub: ${rp.moonLords.subLord}</p>
@@ -306,7 +316,8 @@ function renderRulingPlanets(rp) {
 
 function renderDasha(dasha) {
   const fmt = d => d.toISOString().slice(0, 10);
-  let html = `<p><strong>Birth Nakshatra:</strong> ${dasha.birthNakshatra.name} (Star Lord: ${dasha.birthNakshatra.starLord})</p>`;
+  let html = renderLogicDetails(DASHA_LOGIC_TEXT);
+  html += `<p><strong>Birth Nakshatra:</strong> ${dasha.birthNakshatra.name} (Star Lord: ${dasha.birthNakshatra.starLord})</p>`;
   html += `<p><strong>Dasha Balance at Birth:</strong> ${dasha.balance.years}y ${dasha.balance.months}m ${dasha.balance.days}d</p>`;
   html += '<table><thead><tr><th>Mahadasha</th><th>Start</th><th>End</th></tr></thead><tbody>';
   dasha.mahadashas.forEach(m => {
@@ -354,9 +365,7 @@ function renderPratyantarDetail(antar) {
 }
 
 function renderLifeTopics(lifeTopics) {
-  let html = '<details><summary>Logic and sequence used below</summary><pre>' +
-    LIFE_TOPIC_LOGIC_TEXT.map(row => row[0] || '').join('\n') +
-    '</pre></details>';
+  let html = renderLogicDetails(LIFE_TOPIC_LOGIC_TEXT);
   Object.values(lifeTopics).forEach(result => {
     html += `<h3>${result.topic.label}</h3>`;
     html += `<p><em>${result.topic.note}</em></p>`;
