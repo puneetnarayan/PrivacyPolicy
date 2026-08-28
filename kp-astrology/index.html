@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>KP Astrology Analyzer</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; max-width: 1100px; }
+  h1 { font-size: 1.4em; }
+  h2 { font-size: 1.1em; margin-top: 2em; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 0.85em; }
+  th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
+  input[type=text] { width: 90px; box-sizing: border-box; }
+  .maha-row, .antar-row { cursor: pointer; }
+  .maha-row:hover, .antar-row:hover { background: #f0f0f0; }
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+  #statusMsg { color: #555; font-style: italic; }
+  fieldset { margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>KP Astrology Analyzer</h1>
+<p>Enter or upload your planetary/cuspal data below. All KP rules (significators, ruling planets, Vimshottari dasha) run entirely in your browser — no data leaves this page.</p>
+
+<div class="controls">
+  <button id="loadSampleBtn">Load Blank Template (9 planets / 12 cusps)</button>
+  <label>Upload data (JSON or CSV): <input type="file" id="uploadInput" accept=".json,.csv"></label>
+</div>
+<p id="statusMsg"></p>
+
+<h2>Planets</h2>
+<div class="controls"><button id="addPlanetRowBtn">+ Add Planet Row</button></div>
+<div id="planetTable"></div>
+
+<h2>House Cusps</h2>
+<div class="controls"><button id="addCuspRowBtn">+ Add Cusp Row</button></div>
+<div id="cuspTable"></div>
+
+<h2>Dasha &amp; Ruling Planet Inputs</h2>
+<fieldset>
+  <label>Moon Longitude (0-360°): <input type="text" id="moonLongitude" placeholder="e.g. 123.45"></label><br><br>
+  <label>Birth Date/Time: <input type="datetime-local" id="birthDateTime"></label><br><br>
+  <label>Ruling Planets Moment (defaults to now): <input type="datetime-local" id="rpMoment"></label>
+</fieldset>
+
+<div class="controls">
+  <button id="computeBtn">Compute KP Analysis</button>
+</div>
+
+<h2>Ruling Planets</h2>
+<div id="rulingPlanetsOutput"></div>
+
+<h2>Significators</h2>
+<div id="significatorsOutput"></div>
+
+<h2>Vimshottari Dasha</h2>
+<p><em>Click a Mahadasha row to see Antardashas; click an Antardasha row to see Pratyantardashas.</em></p>
+<div id="dashaOutput"></div>
+
+<script src="js/kpTables.js"></script>
+<script src="js/dasha.js"></script>
+<script src="js/significators.js"></script>
+<script src="js/rulingPlanets.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

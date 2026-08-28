@@ -1,0 +1,29 @@
+{
+  "birthDateTime": "1990-05-15T10:30",
+  "moon": { "longitude": 123.45 },
+  "planets": [
+    { "name": "Sun", "sign": "Taurus", "house": 2, "starLord": "Rahu", "subLord": "Venus", "subSubLord": "Sun", "retrograde": false },
+    { "name": "Moon", "sign": "Cancer", "house": 4, "starLord": "Jupiter", "subLord": "Saturn", "subSubLord": "Moon", "retrograde": false },
+    { "name": "Mars", "sign": "Aries", "house": 1, "starLord": "Ketu", "subLord": "Mercury", "subSubLord": "Mars", "retrograde": false },
+    { "name": "Mercury", "sign": "Taurus", "house": 2, "starLord": "Venus", "subLord": "Rahu", "subSubLord": "Mercury", "retrograde": true },
+    { "name": "Jupiter", "sign": "Cancer", "house": 4, "starLord": "Mars", "subLord": "Jupiter", "subSubLord": "Venus", "retrograde": false },
+    { "name": "Venus", "sign": "Aries", "house": 1, "starLord": "Sun", "subLord": "Moon", "subSubLord": "Rahu", "retrograde": false },
+    { "name": "Saturn", "sign": "Capricorn", "house": 10, "starLord": "Moon", "subLord": "Mars", "subSubLord": "Saturn", "retrograde": true },
+    { "name": "Rahu", "sign": "Leo", "house": 5, "starLord": "Saturn", "subLord": "Ketu", "subSubLord": "Rahu", "retrograde": false },
+    { "name": "Ketu", "sign": "Aquarius", "house": 11, "starLord": "Mercury", "subLord": "Sun", "subSubLord": "Ketu", "retrograde": false }
+  ],
+  "cusps": [
+    { "house": 1, "sign": "Aries", "starLord": "Ketu", "subLord": "Mercury", "subSubLord": "Mars" },
+    { "house": 2, "sign": "Taurus", "starLord": "Rahu", "subLord": "Venus", "subSubLord": "Sun" },
+    { "house": 3, "sign": "Gemini", "starLord": "Sun", "subLord": "Rahu", "subSubLord": "Mercury" },
+    { "house": 4, "sign": "Cancer", "starLord": "Jupiter", "subLord": "Saturn", "subSubLord": "Moon" },
+    { "house": 5, "sign": "Leo", "starLord": "Saturn", "subLord": "Ketu", "subSubLord": "Rahu" },
+    { "house": 6, "sign": "Virgo", "starLord": "Mercury", "subLord": "Sun", "subSubLord": "Mercury" },
+    { "house": 7, "sign": "Libra", "starLord": "Ketu", "subLord": "Mercury", "subSubLord": "Venus" },
+    { "house": 8, "sign": "Scorpio", "starLord": "Rahu", "subLord": "Venus", "subSubLord": "Mars" },
+    { "house": 9, "sign": "Sagittarius", "starLord": "Sun", "subLord": "Rahu", "subSubLord": "Jupiter" },
+    { "house": 10, "sign": "Capricorn", "starLord": "Moon", "subLord": "Mars", "subSubLord": "Saturn" },
+    { "house": 11, "sign": "Aquarius", "starLord": "Mercury", "subLord": "Sun", "subSubLord": "Ketu" },
+    { "house": 12, "sign": "Pisces", "starLord": "Ketu", "subLord": "Mercury", "subSubLord": "Jupiter" }
+  ]
+}
