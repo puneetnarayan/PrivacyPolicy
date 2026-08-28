@@ -8,6 +8,9 @@ let state = {
   cusps: []      // { house, sign, starLord, subLord, subSubLord }
 };
 
+// Cached results from the last runComputations(), used by the Life Topics export.
+let lastResults = { significators: null, dasha: null };
+
 function el(id) { return document.getElementById(id); }
 
 function init() {
@@ -18,6 +21,7 @@ function init() {
   el('computeBtn').addEventListener('click', runComputations);
   el('addPlanetRowBtn').addEventListener('click', () => { state.planets.push(blankPlanet()); renderPlanetTable(); });
   el('addCuspRowBtn').addEventListener('click', () => { state.cusps.push(blankCusp(state.cusps.length + 1)); renderCuspTable(); });
+  el('exportLifeTopicsBtn').addEventListener('click', exportLifeTopicsReport);
 }
 
 // Fields that hold a planet name vs. a sign name, per record type — used to
@@ -239,6 +243,7 @@ function runComputations() {
     // Significators
     const significators = buildSignificators(planets, cusps);
     renderSignificators(significators);
+    lastResults.significators = significators;
 
     // Ruling planets
     const ascendant = cusps.find(c => Number(c.house) === 1);
@@ -259,9 +264,19 @@ function runComputations() {
       const birthDateTime = new Date(birthStr);
       const dasha = computeVimshottariDasha(moonLon, birthDateTime, { levels: 3 });
       renderDasha(dasha);
+      lastResults.dasha = dasha;
     } else {
       el('dashaOutput').textContent = 'Enter Moon longitude and birth date/time to compute the Vimshottari dasha.';
+      lastResults.dasha = null;
     }
+
+    // Life Topic Promise Analysis
+    const lifeMomentStr = el('lifeTopicMoment').value;
+    const lifeMoment = lifeMomentStr ? new Date(lifeMomentStr) : new Date();
+    const runningLords = lastResults.dasha ? findActivePeriod(lastResults.dasha, lifeMoment) : null;
+    const lifeTopics = analyzeAllLifeTopics(significators, runningLords);
+    lastResults.lifeTopics = lifeTopics;
+    renderLifeTopics(lifeTopics);
 
     el('statusMsg').textContent = 'Computation complete.';
   } catch (err) {
@@ -336,6 +351,95 @@ function renderPratyantarDetail(antar) {
   });
   html += '</tbody></table>';
   el('pratyantarDetail').innerHTML = html;
+}
+
+function renderLifeTopics(lifeTopics) {
+  let html = '';
+  Object.values(lifeTopics).forEach(result => {
+    html += `<h3>${result.topic.label}</h3>`;
+    html += `<p><em>${result.topic.note}</em></p>`;
+    html += `<p><strong>Favorable houses:</strong> ${result.topic.favorable.join(', ')} &nbsp; <strong>Obstacle houses:</strong> ${result.topic.obstacles.join(', ')}</p>`;
+    html += '<table><thead><tr><th>House</th><th>Sign</th><th>Significators</th></tr></thead><tbody>';
+    result.houseSig.forEach(h => {
+      html += `<tr><td>${h.house}</td><td>${h.cuspSign || ''}</td><td>${h.significators.join(', ')}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    html += '<table><thead><tr><th>Connecting Planet</th><th>Favorable Houses Linked</th><th>Also Touches Obstacle House(s)</th></tr></thead><tbody>';
+    result.connecting.forEach(c => {
+      html += `<tr><td>${c.planet}</td><td>${c.housesConnected.join(', ')}</td><td>${c.obstacleHouses.join(', ') || '—'}</td></tr>`;
+    });
+    if (!result.connecting.length) html += '<tr><td colspan="3">No planet connects 2+ favorable houses</td></tr>';
+    html += '</tbody></table>';
+    html += `<p><strong>Verdict:</strong> ${result.verdict}</p>`;
+    html += `<p><strong>Timing:</strong> ${result.timingNote}</p>`;
+  });
+  el('lifeTopicsOutput').innerHTML = html;
+}
+
+// Builds the same data as renderLifeTopics(), as sheet rows (array-of-arrays),
+// for the Excel export. One sheet per topic plus a Summary and a Logic sheet.
+function buildLifeTopicsWorkbook(lifeTopics) {
+  const wb = XLSX.utils.book_new();
+
+  const summaryRows = [['Topic', 'Favorable Houses', 'Obstacle Houses', 'Verdict', 'Timing Note']];
+  Object.values(lifeTopics).forEach(r => {
+    summaryRows.push([r.topic.label, r.topic.favorable.join(', '), r.topic.obstacles.join(', '), r.verdict, r.timingNote]);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'Summary');
+
+  const logicRows = [
+    ['KP Life-Topic Promise Analysis — Logic and Sequence'],
+    [''],
+    ['1. Each life topic maps to a fixed set of houses: "favorable" houses that support the event, and "obstacle" houses that typically delay/deny it.'],
+    ['2. For each favorable house, list its significators: occupants, owner (cusp sign lord), star lord of occupants, star lord of owner.'],
+    ['3. A planet appearing as a significator of 2+ favorable houses is a "connecting planet" — a candidate to give the event, especially during its dasha/bhukti.'],
+    ['4. A connecting planet that ALSO significates an obstacle house is weakened/mixed — may delay or complicate the event.'],
+    ['5. Verdict:'],
+    ['   - Strongly Promised: a planet connects ALL favorable houses with no obstacle-house significance.'],
+    ['   - Promised with some obstruction: a planet connects ALL favorable houses but also touches an obstacle house.'],
+    ['   - Partially / Weakly Promised: a planet connects 2+ (not all) favorable houses.'],
+    ['   - Not clearly promised: no planet connects 2+ favorable houses in the data given.'],
+    ['6. Timing: the running Mahadasha/Antardasha/Pratyantardasha lord is checked against the connecting planets — if it is one of them, the event is more likely to fructify in this period rather than remain a chart-only promise.'],
+    [''],
+    ['Caveat: this is a simplified, deterministic heuristic capturing the core KP "significator connection" rule.'],
+    ['It does not weigh planetary strength, aspects, the house cusp\'s own sub-lord, or retrogression nuances.'],
+    ['Treat the verdict as a first-pass screening to be confirmed against dasha timing and a qualified astrologer\'s judgement.']
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(logicRows), 'Logic');
+
+  Object.values(lifeTopics).forEach(r => {
+    const rows = [
+      [r.topic.label],
+      [r.topic.note],
+      ['Favorable houses', r.topic.favorable.join(', ')],
+      ['Obstacle houses', r.topic.obstacles.join(', ')],
+      [''],
+      ['House', 'Sign', 'Significators'],
+      ...r.houseSig.map(h => [h.house, h.cuspSign || '', h.significators.join(', ')]),
+      [''],
+      ['Connecting Planet', 'Favorable Houses Linked', 'Also Touches Obstacle House(s)'],
+      ...(r.connecting.length
+        ? r.connecting.map(c => [c.planet, c.housesConnected.join(', '), c.obstacleHouses.join(', ') || ''])
+        : [['(none)', '', '']]),
+      [''],
+      ['Verdict', r.verdict],
+      ['Timing', r.timingNote]
+    ];
+    const sheetName = r.topic.label.replace(/[\\/?*[\]:]/g, '').slice(0, 31);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
+  });
+
+  return wb;
+}
+
+function exportLifeTopicsReport() {
+  if (!lastResults.lifeTopics) {
+    el('statusMsg').textContent = 'Run "Compute KP Analysis" first, then export.';
+    return;
+  }
+  const wb = buildLifeTopicsWorkbook(lastResults.lifeTopics);
+  XLSX.writeFile(wb, 'kp-life-topics-report.xlsx');
+  el('statusMsg').textContent = 'Exported kp-life-topics-report.xlsx';
 }
 
 document.addEventListener('DOMContentLoaded', init);
