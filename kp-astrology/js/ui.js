@@ -38,11 +38,18 @@ function loadSampleData() {
 function handleUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
+  const isExcel = /\.xlsx$/i.test(file.name);
   const reader = new FileReader();
+
   reader.onload = evt => {
     try {
-      const text = evt.target.result;
-      const data = file.name.endsWith('.csv') ? parseCsvBundle(text) : JSON.parse(text);
+      let data;
+      if (isExcel) {
+        data = parseExcelBundle(evt.target.result);
+      } else {
+        const text = evt.target.result;
+        data = file.name.endsWith('.csv') ? parseCsvBundle(text) : JSON.parse(text);
+      }
       if (data.planets) state.planets = data.planets;
       if (data.cusps) state.cusps = data.cusps;
       if (data.moon) { el('moonLongitude').value = data.moon.longitude ?? ''; }
@@ -54,7 +61,67 @@ function handleUpload(e) {
       el('statusMsg').textContent = 'Failed to parse file: ' + err.message;
     }
   };
-  reader.readAsText(file);
+
+  if (isExcel) reader.readAsArrayBuffer(file);
+  else reader.readAsText(file);
+}
+
+// Expects an .xlsx workbook with three sheets:
+//   "Planets" - header row: name, sign, house, starLord, subLord, subSubLord, retrograde
+//   "Cusps"   - header row: house, sign, starLord, subLord, subSubLord
+//   "Meta"    - two columns, no header: key, value  (rows: birthDateTime, moonLongitude)
+function parseExcelBundle(arrayBuffer) {
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  const result = { planets: [], cusps: [] };
+
+  const planetsSheet = workbook.Sheets['Planets'];
+  if (planetsSheet) {
+    const rows = XLSX.utils.sheet_to_json(planetsSheet, { defval: '' });
+    result.planets = rows.map(r => normalizeRow(r, ['house']));
+  }
+
+  const cuspsSheet = workbook.Sheets['Cusps'];
+  if (cuspsSheet) {
+    const rows = XLSX.utils.sheet_to_json(cuspsSheet, { defval: '' });
+    result.cusps = rows.map(r => normalizeRow(r, ['house']));
+  }
+
+  const metaSheet = workbook.Sheets['Meta'];
+  if (metaSheet) {
+    const rows = XLSX.utils.sheet_to_json(metaSheet, { header: 1 });
+    const meta = {};
+    rows.forEach(r => { if (r[0]) meta[String(r[0]).trim()] = r[1]; });
+    if (meta.moonLongitude !== undefined) result.moon = { longitude: Number(meta.moonLongitude) };
+    if (meta.birthDateTime !== undefined) result.birthDateTime = excelValueToDateTimeLocal(meta.birthDateTime);
+  }
+
+  return result;
+}
+
+function normalizeRow(row, numericFields) {
+  const obj = {};
+  Object.keys(row).forEach(key => {
+    const normKey = { starlord: 'starLord', sublord: 'subLord', subsublord: 'subSubLord' }[key.toLowerCase()] || key;
+    let val = row[key];
+    if (numericFields.includes(normKey) && val !== '') val = Number(val);
+    if (normKey === 'retrograde') val = /^(true|yes|1)$/i.test(String(val));
+    obj[normKey] = val;
+  });
+  return obj;
+}
+
+// Accepts either an Excel serial date number or a text date and returns the
+// "YYYY-MM-DDTHH:mm" format the datetime-local input needs.
+function excelValueToDateTimeLocal(value) {
+  let date;
+  if (typeof value === 'number') {
+    date = new Date(Date.UTC(1899, 11, 30) + value * 86400000);
+  } else {
+    date = new Date(value);
+  }
+  if (isNaN(date.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
 
 // Expects a JSON file structured as { planets: [...], cusps: [...], moon: {longitude}, birthDateTime }.

@@ -23,7 +23,7 @@
 
 <div class="controls">
   <button id="loadSampleBtn">Load Blank Template (9 planets / 12 cusps)</button>
-  <label>Upload data (JSON or CSV): <input type="file" id="uploadInput" accept=".json,.csv"></label>
+  <label>Upload data (Excel .xlsx, JSON, or CSV): <input type="file" id="uploadInput" accept=".xlsx,.json,.csv"></label>
 </div>
 <p id="statusMsg"></p>
 
@@ -56,6 +56,7 @@
 <p><em>Click a Mahadasha row to see Antardashas; click an Antardasha row to see Pratyantardashas.</em></p>
 <div id="dashaOutput"></div>
 
+<script src="js/xlsx.full.min.js"></script>
 <script src="js/kpTables.js"></script>
 <script src="js/dasha.js"></script>
 <script src="js/significators.js"></script>
