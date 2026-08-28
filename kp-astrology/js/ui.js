@@ -354,7 +354,9 @@ function renderPratyantarDetail(antar) {
 }
 
 function renderLifeTopics(lifeTopics) {
-  let html = '';
+  let html = '<details><summary>Logic and sequence used below</summary><pre>' +
+    LIFE_TOPIC_LOGIC_TEXT.map(row => row[0] || '').join('\n') +
+    '</pre></details>';
   Object.values(lifeTopics).forEach(result => {
     html += `<h3>${result.topic.label}</h3>`;
     html += `<p><em>${result.topic.note}</em></p>`;
@@ -387,25 +389,7 @@ function buildLifeTopicsWorkbook(lifeTopics) {
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'Summary');
 
-  const logicRows = [
-    ['KP Life-Topic Promise Analysis — Logic and Sequence'],
-    [''],
-    ['1. Each life topic maps to a fixed set of houses: "favorable" houses that support the event, and "obstacle" houses that typically delay/deny it.'],
-    ['2. For each favorable house, list its significators: occupants, owner (cusp sign lord), star lord of occupants, star lord of owner.'],
-    ['3. A planet appearing as a significator of 2+ favorable houses is a "connecting planet" — a candidate to give the event, especially during its dasha/bhukti.'],
-    ['4. A connecting planet that ALSO significates an obstacle house is weakened/mixed — may delay or complicate the event.'],
-    ['5. Verdict:'],
-    ['   - Strongly Promised: a planet connects ALL favorable houses with no obstacle-house significance.'],
-    ['   - Promised with some obstruction: a planet connects ALL favorable houses but also touches an obstacle house.'],
-    ['   - Partially / Weakly Promised: a planet connects 2+ (not all) favorable houses.'],
-    ['   - Not clearly promised: no planet connects 2+ favorable houses in the data given.'],
-    ['6. Timing: the running Mahadasha/Antardasha/Pratyantardasha lord is checked against the connecting planets — if it is one of them, the event is more likely to fructify in this period rather than remain a chart-only promise.'],
-    [''],
-    ['Caveat: this is a simplified, deterministic heuristic capturing the core KP "significator connection" rule.'],
-    ['It does not weigh planetary strength, aspects, the house cusp\'s own sub-lord, or retrogression nuances.'],
-    ['Treat the verdict as a first-pass screening to be confirmed against dasha timing and a qualified astrologer\'s judgement.']
-  ];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(logicRows), 'Logic');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(LIFE_TOPIC_LOGIC_TEXT), 'Logic');
 
   Object.values(lifeTopics).forEach(r => {
     const rows = [

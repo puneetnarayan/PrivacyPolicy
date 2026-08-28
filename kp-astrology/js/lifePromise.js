@@ -34,6 +34,28 @@
 // verdict as a first-pass screening, to be confirmed against dasha timing
 // and a qualified astrologer's judgement.
 
+// Single source of truth for the "Logic" sheet in the Excel export (and any
+// other place the method needs to be shown to a user) — kept as rows here so
+// ui.js never hardcodes this text; it just requests it.
+const LIFE_TOPIC_LOGIC_TEXT = [
+  ['KP Life-Topic Promise Analysis — Logic and Sequence'],
+  [''],
+  ['1. Each life topic maps to a fixed set of houses: "favorable" houses that support the event, and "obstacle" houses that typically delay/deny it.'],
+  ['2. For each favorable house, list its significators: occupants, owner (cusp sign lord), star lord of occupants, star lord of owner.'],
+  ['3. A planet appearing as a significator of 2+ favorable houses is a "connecting planet" — a candidate to give the event, especially during its dasha/bhukti.'],
+  ['4. A connecting planet that ALSO significates an obstacle house is weakened/mixed — may delay or complicate the event.'],
+  ['5. Verdict:'],
+  ['   - Strongly Promised: a planet connects ALL favorable houses with no obstacle-house significance.'],
+  ['   - Promised with some obstruction: a planet connects ALL favorable houses but also touches an obstacle house.'],
+  ['   - Partially / Weakly Promised: a planet connects 2+ (not all) favorable houses.'],
+  ['   - Not clearly promised: no planet connects 2+ favorable houses in the data given.'],
+  ['6. Timing: the running Mahadasha/Antardasha/Pratyantardasha lord is checked against the connecting planets — if it is one of them, the event is more likely to fructify in this period rather than remain a chart-only promise.'],
+  [''],
+  ['Caveat: this is a simplified, deterministic heuristic capturing the core KP "significator connection" rule.'],
+  ['It does not weigh planetary strength, aspects, the house cusp\'s own sub-lord, or retrogression nuances.'],
+  ['Treat the verdict as a first-pass screening to be confirmed against dasha timing and a qualified astrologer\'s judgement.']
+];
+
 const LIFE_TOPICS = {
   marriage: {
     label: 'Marriage',
@@ -126,5 +148,5 @@ function analyzeAllLifeTopics(significatorsByHouse, runningLords) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { LIFE_TOPICS, analyzeLifeTopic, analyzeAllLifeTopics };
+  module.exports = { LIFE_TOPICS, LIFE_TOPIC_LOGIC_TEXT, analyzeLifeTopic, analyzeAllLifeTopics };
 }
