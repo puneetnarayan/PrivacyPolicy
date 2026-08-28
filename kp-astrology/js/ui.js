@@ -22,6 +22,56 @@ function init() {
   el('addPlanetRowBtn').addEventListener('click', () => { state.planets.push(blankPlanet()); renderPlanetTable(); });
   el('addCuspRowBtn').addEventListener('click', () => { state.cusps.push(blankCusp(state.cusps.length + 1)); renderCuspTable(); });
   el('exportLifeTopicsBtn').addEventListener('click', exportLifeTopicsReport);
+  el('computeEphemerisBtn').addEventListener('click', computeEphemerisLongitudes);
+  el('computeTransitBtn').addEventListener('click', computeTransitSnapshot);
+}
+
+// Fills the Planets table's longitude column (and sign, if blank) from the
+// offline ephemeris, using the birth date/time already entered. No network
+// call is made — everything runs from ephemeris.js's local models.
+function computeEphemerisLongitudes() {
+  const birthStr = el('birthDateTime').value;
+  if (!birthStr) {
+    el('statusMsg').textContent = 'Enter Birth Date/Time first (in the Dasha & Ruling Planet Inputs section above).';
+    return;
+  }
+  const birthDateTime = new Date(birthStr);
+  const longitudes = computePlanetLongitudes(birthDateTime);
+
+  let filled = 0;
+  state.planets.forEach(p => {
+    if (longitudes[p.name] !== undefined) {
+      p.longitude = longitudes[p.name].toFixed(4);
+      if (!p.sign) p.sign = SIGNS[Math.floor(longitudes[p.name] / 30)];
+      filled++;
+    }
+  });
+  renderPlanetTable();
+  el('ephemerisOutput').innerHTML = renderLogicDetails(EPHEMERIS_LOGIC_TEXT) +
+    `<p>Filled exact longitude for ${filled} planet row(s). Ayanamsa used: Lahiri, ${lahiriAyanamsaDegrees(birthDateTime).toFixed(4)}° at this date.</p>`;
+  el('statusMsg').textContent = `Ephemeris: filled longitude for ${filled} planet(s). Re-run "Compute KP Analysis" to refresh dependent reports.`;
+}
+
+function computeTransitSnapshot() {
+  const momentStr = el('transitMoment').value;
+  const moment = momentStr ? new Date(momentStr) : new Date();
+  const longitudes = computePlanetLongitudes(moment);
+  const cusps = state.cusps.filter(c => c.house);
+
+  const planetsForAspect = Object.keys(longitudes).map(name => ({ name, longitude: longitudes[name] }));
+  const aspects = cusps.length ? findAspects(planetsForAspect, cusps) : [];
+
+  let html = renderLogicDetails(EPHEMERIS_LOGIC_TEXT);
+  html += `<p><strong>Snapshot for:</strong> ${moment.toISOString()}</p>`;
+  html += '<table><thead><tr><th>Planet</th><th>Longitude</th><th>Sign</th><th>Aspected Houses (whole-sign)</th></tr></thead><tbody>';
+  Object.keys(longitudes).forEach(name => {
+    const lon = longitudes[name];
+    const sign = SIGNS[Math.floor(lon / 30)];
+    const aspect = aspects.find(a => a.planet === name);
+    html += `<tr><td>${name}</td><td>${lon.toFixed(2)}°</td><td>${sign}</td><td>${aspect ? aspect.aspectedHouses.join(', ') : '(no cusps loaded)'}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  el('transitOutput').innerHTML = html;
 }
 
 // Fields that hold a planet name vs. a sign name, per record type — used to
@@ -54,7 +104,7 @@ function canonicalizeRecords(records) {
 }
 
 function blankPlanet(name) {
-  return { name: name || '', sign: '', house: '', starLord: '', subLord: '', subSubLord: '', retrograde: false };
+  return { name: name || '', sign: '', house: '', starLord: '', subLord: '', subSubLord: '', retrograde: false, longitude: '' };
 }
 function blankCusp(house) {
   return { house, sign: '', starLord: '', subLord: '', subSubLord: '' };
@@ -191,7 +241,7 @@ function rowToObj(header, row, numericFields) {
 }
 
 function renderPlanetTable() {
-  const cols = ['name', 'sign', 'house', 'starLord', 'subLord', 'subSubLord', 'retrograde'];
+  const cols = ['name', 'sign', 'house', 'starLord', 'subLord', 'subSubLord', 'retrograde', 'longitude'];
   el('planetTable').innerHTML = renderEditableTable('planets', state.planets, cols);
   attachTableListeners('planetTable', 'planets', cols);
 }
@@ -244,6 +294,18 @@ function runComputations() {
     const significators = buildSignificators(planets, cusps);
     renderSignificators(significators);
     lastResults.significators = significators;
+
+    // Planetary Relations (combustion/conjunction/aspect) — only for planets with a numeric longitude.
+    const planetsWithLongitude = planets
+      .map(p => ({ ...p, longitude: parseFloat(p.longitude) }))
+      .filter(p => !isNaN(p.longitude));
+    if (planetsWithLongitude.length) {
+      const relations = analyzePlanetaryRelations(planetsWithLongitude, cusps);
+      renderPlanetaryRelations(relations);
+    } else {
+      el('planetaryRelationsOutput').innerHTML = renderLogicDetails(PLANETARY_RELATIONS_LOGIC_TEXT) +
+        '<p>No planet has an exact longitude yet — use the Ephemeris section above (or type longitudes manually) to enable this.</p>';
+    }
 
     // Ruling planets
     const ascendant = cusps.find(c => Number(c.house) === 1);
@@ -303,6 +365,32 @@ function renderSignificators(byHouse) {
   }
   html += '</tbody></table>';
   el('significatorsOutput').innerHTML = html;
+}
+
+function renderPlanetaryRelations(relations) {
+  let html = renderLogicDetails(PLANETARY_RELATIONS_LOGIC_TEXT);
+
+  html += '<h4>Combust Planets</h4><table><thead><tr><th>Planet</th><th>Separation from Sun</th><th>Orb</th></tr></thead><tbody>';
+  relations.combust.forEach(c => {
+    html += `<tr><td>${c.planet}</td><td>${c.separationFromSun}°</td><td>${c.orb}°</td></tr>`;
+  });
+  if (!relations.combust.length) html += '<tr><td colspan="3">None</td></tr>';
+  html += '</tbody></table>';
+
+  html += '<h4>Conjunctions</h4><table><thead><tr><th>Planet A</th><th>Planet B</th><th>Separation</th></tr></thead><tbody>';
+  relations.conjunctions.forEach(c => {
+    html += `<tr><td>${c.planetA}</td><td>${c.planetB}</td><td>${c.separation}°</td></tr>`;
+  });
+  if (!relations.conjunctions.length) html += '<tr><td colspan="3">None</td></tr>';
+  html += '</tbody></table>';
+
+  html += '<h4>Aspects (whole-sign)</h4><table><thead><tr><th>Planet</th><th>Aspected Signs</th><th>Aspected Houses</th></tr></thead><tbody>';
+  relations.aspects.forEach(a => {
+    html += `<tr><td>${a.planet}</td><td>${a.aspectedSigns.join(', ')}</td><td>${a.aspectedHouses.join(', ') || '—'}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  el('planetaryRelationsOutput').innerHTML = html;
 }
 
 function renderRulingPlanets(rp) {

@@ -42,6 +42,27 @@
   <label>Ruling Planets Moment (defaults to now): <input type="datetime-local" id="rpMoment"></label>
 </fieldset>
 
+<h2>Ephemeris (offline, no internet used)</h2>
+<p>Computes exact sidereal (Lahiri) longitude for all 9 planets from birth date/time, entirely in your browser. Enables combustion, conjunction, and aspect checks below. Optional — the rest of the app works without it.</p>
+<fieldset>
+  <label>Birth Latitude: <input type="text" id="birthLat" placeholder="e.g. 28.6139"></label>
+  <label>Birth Longitude: <input type="text" id="birthLon" placeholder="e.g. 77.2090"></label><br><br>
+  <button id="computeEphemerisBtn">Compute Exact Longitudes from Birth Date/Time</button>
+</fieldset>
+<div id="ephemerisOutput"></div>
+
+<h2>Planetary Relations (Combustion / Conjunction / Aspect)</h2>
+<p>Requires exact longitudes above (or typed manually into the Planets table's Longitude column).</p>
+<div id="planetaryRelationsOutput"></div>
+
+<h2>Transit Snapshot</h2>
+<p>Exact planetary positions (and whole-sign aspects) for any date — offline ephemeris, no internet used. Use alongside the running dasha lord to judge event timing.</p>
+<div class="controls">
+  <label>Date/Time to check: <input type="datetime-local" id="transitMoment"></label>
+  <button id="computeTransitBtn">Compute Transit Snapshot</button>
+</div>
+<div id="transitOutput"></div>
+
 <div class="controls">
   <button id="computeBtn">Compute KP Analysis</button>
 </div>
@@ -65,11 +86,14 @@
 <div id="lifeTopicsOutput"></div>
 
 <script src="js/xlsx.full.min.js"></script>
+<script src="js/astronomy.browser.min.js"></script>
 <script src="js/kpTables.js"></script>
 <script src="js/dasha.js"></script>
 <script src="js/significators.js"></script>
 <script src="js/rulingPlanets.js"></script>
 <script src="js/lifePromise.js"></script>
+<script src="js/ephemeris.js"></script>
+<script src="js/planetaryRelations.js"></script>
 <script src="js/ui.js"></script>
 </body>
 </html>
