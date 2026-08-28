@@ -120,5 +120,5 @@ function findActivePeriod(dashaResult, onDate) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { computeVimshottariDasha, findActivePeriod, DASHA_LOGIC_TEXT };
+  module.exports = { computeVimshottariDasha, findActivePeriod, DASHA_LOGIC_TEXT, sequenceStartingFrom };
 }

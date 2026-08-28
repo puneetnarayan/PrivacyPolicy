@@ -24,6 +24,83 @@ function init() {
   el('exportLifeTopicsBtn').addEventListener('click', exportLifeTopicsReport);
   el('computeEphemerisBtn').addEventListener('click', computeEphemerisLongitudes);
   el('computeTransitBtn').addEventListener('click', computeTransitSnapshot);
+  el('generateChartBtn').addEventListener('click', generateFullChart);
+  el('timezoneMode').addEventListener('change', toggleTimezoneModeInputs);
+  populateIanaZoneOptions();
+  toggleTimezoneModeInputs();
+}
+
+function toggleTimezoneModeInputs() {
+  const mode = el('timezoneMode').value;
+  el('ianaZoneLabel').hidden = mode !== 'iana';
+  el('utcOffsetLabel').hidden = mode !== 'offset';
+}
+
+function populateIanaZoneOptions() {
+  const select = el('ianaZone');
+  let zones;
+  try {
+    zones = Intl.supportedValuesOf('timeZone');
+  } catch (e) {
+    zones = null;
+  }
+  if (!zones || !zones.length) {
+    select.innerHTML = '<option value="">(not supported in this browser — use UTC offset mode instead)</option>';
+    el('timezoneMode').value = 'offset';
+    toggleTimezoneModeInputs();
+    return;
+  }
+  select.innerHTML = zones.map(z => `<option value="${z}">${z}</option>`).join('');
+  const guessed = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (guessed && zones.includes(guessed)) select.value = guessed;
+}
+
+// Reads the local birth date/time + place + timezone, converts to UTC, and
+// generates a full chart (planets + cusps) via the offline ephemeris and
+// Placidus cusp calculation — filling both tables in one step.
+function generateFullChart() {
+  const dateStr = el('birthLocalDate').value;
+  const timeStr = el('birthLocalTime').value;
+  const lat = parseFloat(el('birthLat').value);
+  const lon = parseFloat(el('birthLon').value);
+
+  if (!dateStr || !timeStr || isNaN(lat) || isNaN(lon)) {
+    el('statusMsg').textContent = 'Enter birth date, time, latitude, and longitude first.';
+    return;
+  }
+
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hour, minute] = timeStr.split(':').map(Number);
+
+  let birthUtc;
+  try {
+    if (el('timezoneMode').value === 'iana') {
+      const zone = el('ianaZone').value;
+      if (!zone) { el('statusMsg').textContent = 'Select a time zone, or switch to UTC offset mode.'; return; }
+      birthUtc = zonedLocalToUtc(year, month, day, hour, minute, zone);
+    } else {
+      const offsetMinutes = parseUtcOffsetToMinutes(el('utcOffset').value);
+      birthUtc = offsetLocalToUtc(year, month, day, hour, minute, offsetMinutes);
+    }
+  } catch (err) {
+    el('statusMsg').textContent = 'Timezone error: ' + err.message;
+    return;
+  }
+
+  const chart = generateChart(birthUtc, lat, lon);
+
+  state.planets = chart.planets.map(p => ({ ...p, longitude: String(p.longitude) }));
+  state.cusps = chart.cusps.map(c => ({ house: c.house, sign: c.sign, starLord: c.starLord, subLord: c.subLord, subSubLord: c.subSubLord }));
+  renderPlanetTable();
+  renderCuspTable();
+
+  const pad = n => String(n).padStart(2, '0');
+  el('birthDateTime').value = `${birthUtc.getUTCFullYear()}-${pad(birthUtc.getUTCMonth() + 1)}-${pad(birthUtc.getUTCDate())}T${pad(birthUtc.getUTCHours())}:${pad(birthUtc.getUTCMinutes())}`;
+  el('moonLongitude').value = chart.moonLongitude.toFixed(4);
+
+  el('autoChartOutput').innerHTML = renderLogicDetails(AUTO_CHART_LOGIC_TEXT) + renderLogicDetails(TIMEZONE_LOGIC_TEXT) + renderLogicDetails(PLACIDUS_LOGIC_TEXT) + renderLogicDetails(KP_SUBLORD_LOGIC_TEXT) +
+    `<p>Generated chart for birth UTC instant: <strong>${birthUtc.toISOString()}</strong>. Review the Planets and Cusps tables above, then run "Compute KP Analysis" below.</p>`;
+  el('statusMsg').textContent = 'Full chart generated. Review Planets/Cusps tables, then click "Compute KP Analysis".';
 }
 
 // Fills the Planets table's longitude column (and sign, if blank) from the

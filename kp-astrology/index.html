@@ -38,16 +38,33 @@
 <h2>Dasha &amp; Ruling Planet Inputs</h2>
 <fieldset>
   <label>Moon Longitude (0-360°): <input type="text" id="moonLongitude" placeholder="e.g. 123.45"></label><br><br>
-  <label>Birth Date/Time: <input type="datetime-local" id="birthDateTime"></label><br><br>
+  <label>Birth Date/Time (UTC): <input type="datetime-local" id="birthDateTime"></label><br><br>
   <label>Ruling Planets Moment (defaults to now): <input type="datetime-local" id="rpMoment"></label>
 </fieldset>
 
-<h2>Ephemeris (offline, no internet used)</h2>
-<p>Computes exact sidereal (Lahiri) longitude for all 9 planets from birth date/time, entirely in your browser. Enables combustion, conjunction, and aspect checks below. Optional — the rest of the app works without it.</p>
+<h2>Auto-Generate Full Chart from Birth Details (offline)</h2>
+<p>Give date/time/place of birth — this fills the entire Planets and Cusps tables below automatically (exact longitudes, sign, nakshatra, star/sub/sub-sub lord, house placement, retrograde, and Placidus cusps), entirely offline. Everything it fills in stays editable afterward — review it before relying on it.</p>
 <fieldset>
+  <label>Birth Date: <input type="date" id="birthLocalDate"></label>
+  <label>Birth Time (local clock time at birth place): <input type="time" id="birthLocalTime" step="60"></label><br><br>
   <label>Birth Latitude: <input type="text" id="birthLat" placeholder="e.g. 28.6139"></label>
   <label>Birth Longitude: <input type="text" id="birthLon" placeholder="e.g. 77.2090"></label><br><br>
-  <button id="computeEphemerisBtn">Compute Exact Longitudes from Birth Date/Time</button>
+  <label>Timezone mode:
+    <select id="timezoneMode">
+      <option value="iana">Time zone name</option>
+      <option value="offset">UTC offset</option>
+    </select>
+  </label>
+  <label id="ianaZoneLabel">Time zone: <select id="ianaZone"></select></label>
+  <label id="utcOffsetLabel" hidden>UTC offset (e.g. +5:30): <input type="text" id="utcOffset" placeholder="+5:30"></label><br><br>
+  <button id="generateChartBtn">Generate Full Chart (Offline)</button>
+</fieldset>
+<div id="autoChartOutput"></div>
+
+<h2>Ephemeris (offline, no internet used)</h2>
+<p>If you already have cusps from elsewhere and just want exact planet longitudes filled in (instead of a full auto-generated chart above), use this. Enables combustion, conjunction, and aspect checks below.</p>
+<fieldset>
+  <button id="computeEphemerisBtn">Compute Exact Longitudes from Birth Date/Time (UTC) Above</button>
 </fieldset>
 <div id="ephemerisOutput"></div>
 
@@ -94,6 +111,10 @@
 <script src="js/lifePromise.js"></script>
 <script src="js/ephemeris.js"></script>
 <script src="js/planetaryRelations.js"></script>
+<script src="js/placidusCusps.js"></script>
+<script src="js/kpSubLords.js"></script>
+<script src="js/autoChart.js"></script>
+<script src="js/timezone.js"></script>
 <script src="js/ui.js"></script>
 </body>
 </html>
