@@ -20,6 +20,35 @@ function init() {
   el('addCuspRowBtn').addEventListener('click', () => { state.cusps.push(blankCusp(state.cusps.length + 1)); renderCuspTable(); });
 }
 
+// Fields that hold a planet name vs. a sign name, per record type — used to
+// canonicalize case/whitespace variants (e.g. "rahu", "SATURN ") to the
+// spelling the KP lookup tables expect (e.g. "Rahu", "Saturn").
+const PLANET_FIELDS = ['name', 'starLord', 'subLord', 'subSubLord'];
+const SIGN_FIELDS = ['sign'];
+
+// Normalizes planet/sign fields in place and returns a list of warnings for
+// any value that didn't match a known planet or sign name.
+function canonicalizeRecords(records) {
+  const warnings = [];
+  records.forEach((rec, i) => {
+    PLANET_FIELDS.forEach(f => {
+      if (rec[f]) {
+        const canonical = canonicalPlanetName(rec[f]);
+        if (!isKnownPlanetName(rec[f])) warnings.push(`Row ${i + 1}: "${rec[f]}" (${f}) is not a recognized planet name`);
+        rec[f] = canonical;
+      }
+    });
+    SIGN_FIELDS.forEach(f => {
+      if (rec[f]) {
+        const canonical = canonicalSignName(rec[f]);
+        if (!isKnownSignName(rec[f])) warnings.push(`Row ${i + 1}: "${rec[f]}" (${f}) is not a recognized sign name`);
+        rec[f] = canonical;
+      }
+    });
+  });
+  return warnings;
+}
+
 function blankPlanet(name) {
   return { name: name || '', sign: '', house: '', starLord: '', subLord: '', subSubLord: '', retrograde: false };
 }
@@ -54,9 +83,13 @@ function handleUpload(e) {
       if (data.cusps) state.cusps = data.cusps;
       if (data.moon) { el('moonLongitude').value = data.moon.longitude ?? ''; }
       if (data.birthDateTime) { el('birthDateTime').value = data.birthDateTime; }
+
+      const warnings = [...canonicalizeRecords(state.planets), ...canonicalizeRecords(state.cusps)];
       renderPlanetTable();
       renderCuspTable();
-      el('statusMsg').textContent = 'Loaded data from ' + file.name;
+      el('statusMsg').textContent = warnings.length
+        ? `Loaded data from ${file.name}. Warnings: ${warnings.join('; ')}`
+        : 'Loaded data from ' + file.name;
     } catch (err) {
       el('statusMsg').textContent = 'Failed to parse file: ' + err.message;
     }
@@ -183,8 +216,12 @@ function attachTableListeners(tableId, kind, cols) {
     input.addEventListener('change', () => {
       const row = Number(input.dataset.row);
       const col = input.dataset.col;
-      const value = input.type === 'checkbox' ? input.checked : input.value;
-      state[kind][row][col] = col === 'house' ? Number(value) : value;
+      let value = input.type === 'checkbox' ? input.checked : input.value;
+      if (col === 'house') value = Number(value);
+      else if (PLANET_FIELDS.includes(col)) value = canonicalPlanetName(value);
+      else if (SIGN_FIELDS.includes(col)) value = canonicalSignName(value);
+      state[kind][row][col] = value;
+      if (col !== 'house' && input.type !== 'checkbox') input.value = value;
     });
   });
 }

@@ -56,10 +56,52 @@ function nakshatraFromLongitude(longitude) {
 // Weekday lord (Ruling Planets: day lord), 0=Sunday..6=Saturday matching JS Date.getDay().
 const WEEKDAY_LORD = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
 
+const PLANET_NAMES = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu'];
+
+// Case/whitespace-tolerant lookup: builds a map from a normalized key
+// (lowercased, spaces collapsed) to the canonical spelling.
+function buildCanonicalLookup(names) {
+  const map = {};
+  names.forEach(name => { map[normalizeKey(name)] = name; });
+  return map;
+}
+function normalizeKey(str) {
+  return String(str || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+const PLANET_LOOKUP = buildCanonicalLookup(PLANET_NAMES);
+const SIGN_LOOKUP = buildCanonicalLookup(SIGNS);
+const NAKSHATRA_LOOKUP = buildCanonicalLookup(NAKSHATRAS);
+
+// Returns the canonical spelling for a planet name, tolerating case and
+// stray whitespace (e.g. " rahu " -> "Rahu"). Returns the trimmed original
+// unchanged if it doesn't match any known planet, so unrecognized input is
+// preserved (and can be flagged) rather than silently dropped.
+function canonicalPlanetName(value) {
+  if (value === undefined || value === null || value === '') return value;
+  return PLANET_LOOKUP[normalizeKey(value)] || String(value).trim();
+}
+function canonicalSignName(value) {
+  if (value === undefined || value === null || value === '') return value;
+  return SIGN_LOOKUP[normalizeKey(value)] || String(value).trim();
+}
+function canonicalNakshatraName(value) {
+  if (value === undefined || value === null || value === '') return value;
+  return NAKSHATRA_LOOKUP[normalizeKey(value)] || String(value).trim();
+}
+function isKnownPlanetName(value) {
+  return !!PLANET_LOOKUP[normalizeKey(value)];
+}
+function isKnownSignName(value) {
+  return !!SIGN_LOOKUP[normalizeKey(value)];
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     VIMSHOTTARI_SEQUENCE, VIMSHOTTARI_YEARS, VIMSHOTTARI_TOTAL_YEARS,
-    NAKSHATRAS, NAKSHATRA_TABLE, SIGNS, SIGN_LORD,
-    nakshatraFromLongitude, WEEKDAY_LORD
+    NAKSHATRAS, NAKSHATRA_TABLE, SIGNS, SIGN_LORD, PLANET_NAMES,
+    nakshatraFromLongitude, WEEKDAY_LORD,
+    canonicalPlanetName, canonicalSignName, canonicalNakshatraName,
+    isKnownPlanetName, isKnownSignName
   };
 }
