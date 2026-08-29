@@ -14,6 +14,8 @@ const VEDIC_CHARTS_LOGIC_TEXT = [
   ['1. Two selectable layouts, both standard: SOUTH INDIAN — a fixed 4x4 grid where each of the 12 signs always sits in the same cell; sign positions never rotate, only which house number lands in each sign changes. NORTH INDIAN — a diamond-in-square divided into 12 house-shaped regions in fixed SCREEN positions (house 1 always the top diamond, proceeding clockwise); here house positions never rotate, and instead the sign written inside each house rotates with the Ascendant.'],
   ['2. D1 (Rasi) Chart: South Indian places each planet in its natal sign\'s fixed cell. North Indian places each planet in its natal house\'s fixed position, with each house\'s cell labeled by counting signs forward from the Ascendant\'s sign one sign per house (the standard whole-sign convention North Indian charts use for the sign label, distinct from this app\'s Placidus cusps).'],
   ['3. D9 (Navamsa) Chart: each sign is divided into 9 equal parts of 3°20\' (a "navamsa"). Which sign a planet\'s navamsa falls in depends on the classical rule: for a movable sign (Aries/Cancer/Libra/Capricorn), navamsa counting starts from that same sign; for a fixed sign (Taurus/Leo/Scorpio/Aquarius), counting starts from the 9th sign from it; for a dual sign (Gemini/Virgo/Sagittarius/Pisces), counting starts from the 5th sign from it. South Indian places each planet directly in its resulting navamsa sign\'s fixed cell. North Indian first derives a "Navamsa Ascendant" (the natal Ascendant\'s own navamsa sign), then places each planet\'s house by counting whole signs forward from that Navamsa Ascendant — the standard way a divisional chart is read as its own self-contained whole-sign chart. Both need the planet\'s exact longitude (from Ephemeris/Auto-Generate) — without it a planet is omitted from D9 rather than guessed.'],
+  ['3b. D9 degree shown: the planet\'s position WITHIN its 3°20\' navamsa part is rescaled proportionally to a full 0-30° span, becoming its degree within the resulting D9 sign — this is the standard way a divisional chart\'s own internal degree is derived, not the natal D1 degree.'],
+  ['5. Each planet in every chart shows its exact degree-minute-second position within its cell\'s sign (D1/KP: the natal degree; D9: the rescaled D9-internal degree above), not just the sign name.'],
   ['4. KP Chart: uses the REAL Placidus house cusps already computed elsewhere in this app (not a simplified whole-sign offset) — each house\'s actual cusp sign and cuspal star/sub/sub-sub lord are shown, in whichever fixed layout (house positions for North Indian, sign positions for South Indian) is selected. This is the house-based view KP practice actually uses for significator work.'],
   [''],
   ['Caveat: at extreme latitudes a Placidus house can occupy the same sign as another house, or a sign can host no house cusp at all — the South Indian KP chart may then show multiple house numbers in one sign cell, or none. The North Indian diamond coordinate layout follows the standard clockwise-from-top convention but has not been visually cross-checked against a second reference chart image in this offline environment — spot-check house 1 lands on the Ascendant sign before relying on it. This display introduces no new planetary-position calculation beyond the Navamsa formula above.']
@@ -34,29 +36,46 @@ const FIXED_SIGNS = ['Taurus', 'Leo', 'Scorpio', 'Aquarius'];
 
 // Classical Navamsa (D9) sign for a given sidereal longitude.
 function navamsaSign(longitude) {
+  return navamsaPosition(longitude).sign;
+}
+
+// Full Navamsa (D9) position: which sign the navamsa falls in, AND a
+// synthetic 0-360° "D9 longitude" usable with formatDegMinSec() to show the
+// planet's exact degree WITHIN that D9 sign — found by rescaling its
+// position within the 3°20' navamsa part up to a full 0-30° span (the part
+// it occupies exactly proportionally becomes the whole D9 sign).
+function navamsaPosition(longitude) {
   const lon = normalizeDegrees(longitude);
   const signIndex = Math.floor(lon / 30);
   const sign = SIGNS[signIndex];
-  const navamsaPart = Math.floor((lon % 30) / (30 / 9)); // 0-8
+  const degInSign = lon % 30;
+  const partSize = 30 / 9;
+  const navamsaPart = Math.floor(degInSign / partSize);
+  const remainderInPart = degInSign - navamsaPart * partSize;
+  const scaledDegree = remainderInPart * 9; // 0-30, this navamsa's own internal degree
 
   let startIndex;
   if (MOVABLE_SIGNS.includes(sign)) startIndex = signIndex;
   else if (FIXED_SIGNS.includes(sign)) startIndex = (signIndex + 8) % 12;
   else startIndex = (signIndex + 4) % 12; // dual sign
 
-  return SIGNS[(startIndex + navamsaPart) % 12];
+  const resultSignIndex = (startIndex + navamsaPart) % 12;
+  return { sign: SIGNS[resultSignIndex], longitude: resultSignIndex * 30 + scaledDegree };
 }
 
-// { sign: [planetName, ...] } for D1.
+// { sign: [{name, longitude}, ...] } for D1.
 function buildD1ChartData(planets) {
   const bySign = {};
   SIGNS.forEach(s => { bySign[s] = []; });
-  planets.forEach(p => { if (p.sign && bySign[p.sign]) bySign[p.sign].push(p.name); });
+  planets.forEach(p => {
+    if (p.sign && bySign[p.sign]) bySign[p.sign].push({ name: p.name, longitude: parseFloat(p.longitude) });
+  });
   return bySign;
 }
 
-// { sign: [planetName, ...] } for D9. Planets without a numeric longitude are
-// skipped (returned separately) since Navamsa needs exact degree.
+// { sign: [{name, longitude: <synthetic D9 longitude>}, ...] } for D9.
+// Planets without a numeric longitude are skipped (returned separately)
+// since Navamsa needs exact degree.
 function buildD9ChartData(planets) {
   const bySign = {};
   SIGNS.forEach(s => { bySign[s] = []; });
@@ -64,16 +83,19 @@ function buildD9ChartData(planets) {
   planets.forEach(p => {
     const lon = parseFloat(p.longitude);
     if (isNaN(lon)) { skipped.push(p.name); return; }
-    bySign[navamsaSign(lon)].push(p.name);
+    const nav = navamsaPosition(lon);
+    bySign[nav.sign].push({ name: p.name, longitude: nav.longitude });
   });
   return { bySign, skipped };
 }
 
-// { sign: { planets:[...], houses:[{house, starLord, subLord, subSubLord}] } } for the KP chart.
+// { sign: { planets:[{name,longitude}...], houses:[{house, starLord, subLord, subSubLord}] } } for the KP chart.
 function buildKpChartData(planets, cusps) {
   const bySign = {};
   SIGNS.forEach(s => { bySign[s] = { planets: [], houses: [] }; });
-  planets.forEach(p => { if (p.sign && bySign[p.sign]) bySign[p.sign].planets.push(p.name); });
+  planets.forEach(p => {
+    if (p.sign && bySign[p.sign]) bySign[p.sign].planets.push({ name: p.name, longitude: parseFloat(p.longitude) });
+  });
   cusps.forEach(c => {
     if (c.sign && bySign[c.sign]) {
       bySign[c.sign].houses.push({
@@ -115,7 +137,10 @@ function buildD1NorthIndian(planets, cusps) {
   const ascSignIndex = ascCusp ? SIGNS.indexOf(ascCusp.sign) : 0;
   const byHouse = {};
   for (let h = 1; h <= 12; h++) byHouse[h] = { signIndex: (ascSignIndex + h - 1) % 12, planets: [] };
-  planets.forEach(p => { const h = Number(p.house); if (byHouse[h]) byHouse[h].planets.push(p.name); });
+  planets.forEach(p => {
+    const h = Number(p.house);
+    if (byHouse[h]) byHouse[h].planets.push({ name: p.name, longitude: parseFloat(p.longitude) });
+  });
   return byHouse;
 }
 
@@ -134,9 +159,10 @@ function buildD9NorthIndian(planets, cusps) {
   planets.forEach(p => {
     const lon = parseFloat(p.longitude);
     if (isNaN(lon)) { skipped.push(p.name); return; }
-    const signIndex = SIGNS.indexOf(navamsaSign(lon));
+    const nav = navamsaPosition(lon);
+    const signIndex = SIGNS.indexOf(nav.sign);
     const house = wholeSignHouseOf(signIndex, navAscSignIndex);
-    byHouse[house].planets.push(p.name);
+    byHouse[house].planets.push({ name: p.name, longitude: nav.longitude });
   });
   return { byHouse, skipped, navAscSignIndex };
 }
@@ -153,14 +179,17 @@ function buildKpNorthIndian(planets, cusps) {
       planets: []
     };
   }
-  planets.forEach(p => { const h = Number(p.house); if (byHouse[h]) byHouse[h].planets.push(p.name); });
+  planets.forEach(p => {
+    const h = Number(p.house);
+    if (byHouse[h]) byHouse[h].planets.push({ name: p.name, longitude: parseFloat(p.longitude) });
+  });
   return byHouse;
 }
 
 if (typeof module !== 'undefined') {
   module.exports = {
     VEDIC_CHARTS_LOGIC_TEXT, SOUTH_INDIAN_GRID, NORTH_INDIAN_HOUSES,
-    navamsaSign, wholeSignHouseOf,
+    navamsaSign, navamsaPosition, wholeSignHouseOf,
     buildD1ChartData, buildD9ChartData, buildKpChartData,
     buildD1NorthIndian, buildD9NorthIndian, buildKpNorthIndian
   };

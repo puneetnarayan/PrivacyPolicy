@@ -1377,12 +1377,22 @@ function renderAllVedicCharts() {
   }
 }
 
+// Degree-min-sec WITHOUT the trailing sign name (the cell/house already
+// shows the sign) — e.g. "12°34'56"" — for compact in-chart labels.
+function formatDmsOnly(longitude) {
+  if (longitude === undefined || longitude === null || isNaN(Number(longitude))) return '';
+  const { degree, minute, second } = longitudeToDegMinSec(longitude);
+  const pad = n => String(n).padStart(2, '0');
+  return `${degree}°${pad(minute)}'${pad(second)}"`;
+}
+
 function renderSouthIndianSimple(bySign) {
   let html = '<div class="vedic-chart-grid">';
   SOUTH_INDIAN_GRID.forEach(sign => {
     if (!sign) { html += '<div class="vedic-chart-cell"></div>'; return; }
     const planetsHere = bySign[sign] || [];
-    html += `<div class="vedic-chart-cell"><span class="sign-name">${sign.slice(0, 3)}</span>${planetsHere.join(', ')}</div>`;
+    const planetLines = planetsHere.map(p => `${p.name} ${formatDmsOnly(p.longitude)}`).join('<br>');
+    html += `<div class="vedic-chart-cell"><span class="sign-name">${sign.slice(0, 3)}</span>${planetLines}</div>`;
   });
   html += '</div>';
   return html;
@@ -1395,7 +1405,8 @@ function renderSouthIndianKp(bySignKp) {
     const data = bySignKp[sign] || { planets: [], houses: [] };
     const houseBadges = data.houses.map(h => `H${h.house}`).join(' ');
     const lordText = data.houses.map(h => `H${h.house}:${h.starLord || '?'}/${h.subLord || '?'}`).join('; ');
-    html += `<div class="vedic-chart-cell"><span class="sign-name">${sign.slice(0, 3)} <span class="house-badge">${houseBadges}</span></span>${data.planets.join(', ')}<span class="lord-info">${lordText}</span></div>`;
+    const planetLines = data.planets.map(p => `${p.name} ${formatDmsOnly(p.longitude)}`).join('<br>');
+    html += `<div class="vedic-chart-cell"><span class="sign-name">${sign.slice(0, 3)} <span class="house-badge">${houseBadges}</span></span>${planetLines}<span class="lord-info">${lordText}</span></div>`;
   });
   html += '</div>';
   return html;
@@ -1413,10 +1424,12 @@ function renderNorthIndianSvg(byHouse, mode) {
     } else {
       signLabel = SIGNS[data.signIndex].slice(0, 3);
     }
-    const planetsText = data.planets.map(p => p.slice(0, 2)).join(' ');
     svg += `<text x="${h.label[0]}" y="${h.label[1] - 8}" text-anchor="middle" font-weight="bold">H${h.house}:${signLabel}</text>`;
     if (extra) svg += `<text x="${h.label[0]}" y="${h.label[1] + 3}" text-anchor="middle" font-size="9" fill="#666">${extra}</text>`;
-    svg += `<text x="${h.label[0]}" y="${h.label[1] + (extra ? 14 : 8)}" text-anchor="middle" fill="#a04000">${planetsText}</text>`;
+    data.planets.forEach((p, i) => {
+      const y = h.label[1] + (extra ? 14 : 8) + i * 10;
+      svg += `<text x="${h.label[0]}" y="${y}" text-anchor="middle" font-size="8" fill="#a04000">${p.name.slice(0, 2)} ${formatDmsOnly(p.longitude)}</text>`;
+    });
   });
   svg += '</svg>';
   return svg;
