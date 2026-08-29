@@ -23,7 +23,7 @@ const EVENT_TIMING_LOGIC_TEXT = [
   ['1. EVENT PROMISE (0-30 pts default): using the natal chart\'s existing significators (significators.js), find which planet(s) connect the MOST of the event\'s required houses. A planet connecting all required houses scores the full points; connecting fewer houses scores proportionally less. This does not override or duplicate the Life Topic Promise Analysis tab — it is the same underlying significator-connection idea, applied per-event here.'],
   ['2. DBA CAPABILITY (0-30 pts default): for a candidate date, find the running Mahadasha/Antardasha/Pratyantardasha/Sookshmadasha lords (dasha.js) and check how many of them are themselves significators of the event\'s required houses. More matching period lords -> higher score. A period whose lords have no connection to the required houses scores near zero here, regardless of transits.'],
   ['3. TRANSIT ACTIVATION (0-40 pts default, split into 4 sub-components): using the SAME transiting-planet longitudes the Live Transit Table/ephemeris.js already compute for any date -- (a) Transit -> Natal Significator: is a transiting planet itself one of the event\'s natal significators; (b) Transit -> Relevant Cusp: is a transiting planet currently in the same sign as one of the event\'s house cusps; (c) Transit Star Lord: is a transiting planet currently passing through a nakshatra ruled by one of the event\'s cuspal star lords; (d) Transit Sub Lord: same idea for the cuspal sub lord\'s KP sub-division.'],
-  ['4. CONVERGENCE: the total score rewards Promise + capable DBA + transit activation occurring TOGETHER. A strong transit during an incapable DBA, or a capable DBA with no transit confirmation, both score lower than all three aligning at once -- by construction, since each component only contributes when its own condition is met.'],
+  ['4. CONVERGENCE: the raw Transit Activation score is DAMPENED by DBA capability before it counts — multiplied by (50% + 50% x the fraction of running dasha lords that signify a required house). A fully capable DBA (all lords connect) leaves transit undamped; a totally incapable DBA (no lord connects) halves the transit score. On top of that, a +10 point Convergence Bonus is awarded only when Promise, DBA, and the (already-dampened) Transit score EACH independently clear 50% of their own maximum — rewarding genuine three-way alignment, not just a high sum of unrelated components. A strong transit during an incapable DBA, or a capable DBA with no transit confirmation, both score meaningfully lower than all three aligning at once.'],
   ['5. NEGATIVE FACTORS: houses configured as "opposing" for the event (e.g. 1st/6th/10th for marriage, indicating separation/bachelorhood themes) are checked the same way -- if the best promise-connecting planet or a running dasha lord ALSO significates an opposing house, this is recorded as a listed conflicting factor (shown separately from positive factors) though it does not subtract from the numeric score, per the requirement to always show conflicts explicitly rather than silently discard a period.'],
   ['6. PROGRESSIVE SEARCH: Level 1 (months) samples one point per month (mid-month, local noon) across the whole search horizon -- cheap, coarse. Only the highest-scoring months proceed to Level 2 (every day in that month, full score). Only the highest-scoring days proceed to Level 3 (every hour of that day). This avoids computing hourly transits for every hour of a multi-year search.'],
   ['7. WINDOWS: consecutive days at or above the "Favourable" threshold are grouped into one window with a peak day, rather than listed as isolated dates.'],
@@ -41,6 +41,20 @@ const EVENT_TIMING_WEIGHTS = {
   transitCusp: 10,
   transitStarLord: 10,
   transitSubLord: 5
+};
+
+// Convergence rules: how strongly DBA capability gates the transit score,
+// and the bonus for all three pillars (promise/DBA/transit) aligning at
+// once. All configurable — see scoreCandidate() for how they're applied.
+const EVENT_TIMING_CONVERGENCE = {
+  // Transit score is multiplied by (transitDampenFloor + (1-transitDampenFloor) * dbaCapableFraction).
+  // At dbaCapableFraction=0 (no dasha lord connects to any required house), transit only
+  // contributes transitDampenFloor of its raw score; at dbaCapableFraction=1, transit is undamped.
+  transitDampenFloor: 0.5,
+  // Extra points awarded only when promise, DBA, and (dampened) transit each clear this
+  // fraction of their own max — i.e. a genuine three-way convergence, not just a high sum.
+  convergenceThresholdFraction: 0.5,
+  convergenceBonus: 10
 };
 
 const EVENT_TIMING_THRESHOLDS = [
@@ -157,17 +171,34 @@ function scoreTransit(eventDef, natalCusps, significators, transitDate, weights)
 
 // --- Section: Combined Scoring (one candidate date/time) ---
 // natal: { planets, cusps, significators, dashaResult } — built once per search, reused across all candidates.
-function scoreCandidate(eventKey, natal, date, weights, thresholds) {
+function scoreCandidate(eventKey, natal, date, weights, thresholds, convergence) {
   const eventDef = EVENT_RULES[eventKey];
   weights = weights || EVENT_TIMING_WEIGHTS;
   thresholds = thresholds || EVENT_TIMING_THRESHOLDS;
+  convergence = convergence || EVENT_TIMING_CONVERGENCE;
 
   const promise = scorePromise(eventDef, natal.significators, weights);
   const runningLords = findActivePeriod(natal.dashaResult, date) || {};
   const dba = scoreDba(eventDef, natal.significators, runningLords, weights);
-  const transit = scoreTransit(eventDef, natal.cusps, natal.significators, date, weights);
+  const transitRaw = scoreTransit(eventDef, natal.cusps, natal.significators, date, weights);
 
-  const total = Math.min(100, promise.score + dba.score + transit.score);
+  // Convergence: DBA capability gates how much the transit score actually
+  // counts (a strong transit during an incapable DBA is worth less), and a
+  // bonus is awarded only when promise, DBA, and transit ALL independently
+  // clear their own threshold — rewarding true three-way alignment rather
+  // than just a high sum of unrelated components.
+  const dbaCapableFraction = dba.totalLords ? dba.capableCount / dba.totalLords : 0;
+  const transitDampenMultiplier = convergence.transitDampenFloor + (1 - convergence.transitDampenFloor) * dbaCapableFraction;
+  const transitScore = Math.round(transitRaw.score * transitDampenMultiplier);
+  const transit = { ...transitRaw, rawScore: transitRaw.score, score: transitScore, dampenMultiplier: transitDampenMultiplier };
+
+  const clearsThreshold = (score, max) => max > 0 && (score / max) >= convergence.convergenceThresholdFraction;
+  const converged = clearsThreshold(promise.score, promise.maxScore) &&
+    clearsThreshold(dba.score, dba.maxScore) &&
+    clearsThreshold(transit.score, transit.maxScore);
+  const convergenceBonus = converged ? convergence.convergenceBonus : 0;
+
+  const total = Math.min(100, promise.score + dba.score + transit.score + convergenceBonus);
 
   const positiveFactors = [];
   const negativeFactors = [];
@@ -181,11 +212,13 @@ function scoreCandidate(eventKey, natal, date, weights, thresholds) {
   if (transit.breakdown.cusp.hits.length) positiveFactors.push(`Transit activates relevant cusp(s): house ${transit.breakdown.cusp.hits.join(', ')}.`);
   if (transit.breakdown.starLord.hits.length) positiveFactors.push(`Transit star lord supports house(s) ${transit.breakdown.starLord.hits.join(', ')}.`);
   if (transit.breakdown.subLord.hits.length) positiveFactors.push(`Transit sub lord supports house(s) ${transit.breakdown.subLord.hits.join(', ')}.`);
+  if (transitDampenMultiplier < 1) negativeFactors.push(`Transit score reduced to ${Math.round(transitDampenMultiplier * 100)}% because only ${dba.capableCount}/${dba.totalLords} running dasha lord(s) signify a required house.`);
+  if (converged) positiveFactors.push(`Convergence bonus (+${convergenceBonus}): Promise, DBA, and Transit all independently confirm this period.`);
   if (promise.conflictingHouse) negativeFactors.push(`${promise.bestPlanet} also signifies an opposing/obstruction house.`);
 
   return {
     date, eventKey, eventLabel: eventDef.label,
-    total, classification: classify(total, thresholds),
+    total, classification: classify(total, thresholds), convergenceBonus,
     breakdown: { promise, dba, transit },
     runningLords, positiveFactors, negativeFactors,
     requiredHouses: eventDef.requiredHouses
@@ -268,7 +301,7 @@ function finalizeWindow(current) {
 
 if (typeof module !== 'undefined') {
   module.exports = {
-    EVENT_TIMING_LOGIC_TEXT, EVENT_TIMING_WEIGHTS, EVENT_TIMING_THRESHOLDS, classify,
+    EVENT_TIMING_LOGIC_TEXT, EVENT_TIMING_WEIGHTS, EVENT_TIMING_THRESHOLDS, EVENT_TIMING_CONVERGENCE, classify,
     scorePromise, scoreDba, scoreTransit, scoreCandidate, buildNatalContext,
     searchMonths, searchDays, searchHours, detectWindows
   };

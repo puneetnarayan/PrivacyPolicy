@@ -1307,11 +1307,13 @@ function renderEventTimingDetail(result) {
   html += `<p><strong>Required Houses:</strong> ${result.requiredHouses.join(', ')}</p>`;
   html += '<p><strong>Score Breakdown:</strong></p><ul>';
   html += `<li>Event Promise: ${result.breakdown.promise.score} / ${result.breakdown.promise.maxScore}</li>`;
-  html += `<li>DBA Capability: ${result.breakdown.dba.score} / ${result.breakdown.dba.maxScore}</li>`;
-  html += `<li>Transit → Significator: ${result.breakdown.transit.breakdown.significator.score} / ${result.breakdown.transit.breakdown.significator.max}</li>`;
-  html += `<li>Transit → Cusp: ${result.breakdown.transit.breakdown.cusp.score} / ${result.breakdown.transit.breakdown.cusp.max}</li>`;
-  html += `<li>Transit Star Lord: ${result.breakdown.transit.breakdown.starLord.score} / ${result.breakdown.transit.breakdown.starLord.max}</li>`;
-  html += `<li>Transit Sub Lord: ${result.breakdown.transit.breakdown.subLord.score} / ${result.breakdown.transit.breakdown.subLord.max}</li>`;
+  html += `<li>DBA Capability: ${result.breakdown.dba.score} / ${result.breakdown.dba.maxScore} (${result.breakdown.dba.capableCount}/${result.breakdown.dba.totalLords} lords capable)</li>`;
+  html += `<li>Transit → Significator: ${result.breakdown.transit.breakdown.significator.score} / ${result.breakdown.transit.breakdown.significator.max} (raw, before DBA dampening)</li>`;
+  html += `<li>Transit → Cusp: ${result.breakdown.transit.breakdown.cusp.score} / ${result.breakdown.transit.breakdown.cusp.max} (raw, before DBA dampening)</li>`;
+  html += `<li>Transit Star Lord: ${result.breakdown.transit.breakdown.starLord.score} / ${result.breakdown.transit.breakdown.starLord.max} (raw, before DBA dampening)</li>`;
+  html += `<li>Transit Sub Lord: ${result.breakdown.transit.breakdown.subLord.score} / ${result.breakdown.transit.breakdown.subLord.max} (raw, before DBA dampening)</li>`;
+  html += `<li><strong>Transit Total after DBA dampening: ${result.breakdown.transit.score} / ${result.breakdown.transit.maxScore}</strong> (raw ${result.breakdown.transit.rawScore} × ${Math.round(result.breakdown.transit.dampenMultiplier * 100)}%)</li>`;
+  if (result.convergenceBonus) html += `<li><strong>Convergence Bonus: +${result.convergenceBonus}</strong> (Promise + DBA + Transit all independently confirmed)</li>`;
   html += '</ul>';
   html += '<p><strong>Positive Factors:</strong></p><ul>' + result.positiveFactors.map(f => `<li>${f}</li>`).join('') + '</ul>';
   html += '<p><strong>Conflicting Factors:</strong></p><ul>' + (result.negativeFactors.length ? result.negativeFactors.map(f => `<li>${f}</li>`).join('') : '<li>None</li>') + '</ul>';
