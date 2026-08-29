@@ -5,8 +5,14 @@ const PLANET_NAMES_DEFAULT = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venu
 
 let state = {
   planets: [],   // { name, sign, house, starLord, subLord, subSubLord, retrograde }
-  cusps: []      // { house, sign, starLord, subLord, subSubLord }
+  cusps: [],     // { house, sign, starLord, subLord, subSubLord }
+  // Cells last set by "Generate Full Chart" (not since hand-edited), as "rowIndex:col" keys.
+  // Rendered with a light-green background until the user edits that specific cell.
+  updatedPlanetCells: new Set(),
+  updatedCuspCells: new Set()
 };
+
+const BIRTH_INPUT_IDS = ['birthLocalDate', 'birthLocalTime', 'birthLat', 'birthLon'];
 
 // Cached results from the last runComputations(), used by the Life Topics export.
 let lastResults = { significators: null, dasha: null };
@@ -28,6 +34,17 @@ function init() {
   el('timezoneMode').addEventListener('change', toggleTimezoneModeInputs);
   populateIanaZoneOptions();
   toggleTimezoneModeInputs();
+
+  BIRTH_INPUT_IDS.forEach(id => {
+    el(id).classList.add('birth-input-pending');
+    el(id).addEventListener('input', () => {
+      el(id).classList.remove('birth-input-submitted');
+      el(id).classList.add('birth-input-pending');
+    });
+  });
+  ['birthDateTime', 'moonLongitude'].forEach(id => {
+    el(id).addEventListener('input', () => el(id).classList.remove('cell-updated'));
+  });
 }
 
 function toggleTimezoneModeInputs() {
@@ -91,12 +108,28 @@ function generateFullChart() {
 
   state.planets = chart.planets.map(p => ({ ...p, longitude: String(p.longitude) }));
   state.cusps = chart.cusps.map(c => ({ house: c.house, sign: c.sign, starLord: c.starLord, subLord: c.subLord, subSubLord: c.subSubLord }));
+
+  const planetCols = ['name', 'sign', 'house', 'starLord', 'subLord', 'subSubLord', 'retrograde', 'longitude'];
+  state.updatedPlanetCells = new Set();
+  state.planets.forEach((p, i) => planetCols.forEach(c => state.updatedPlanetCells.add(i + ':' + c)));
+
+  const cuspCols = ['house', 'sign', 'starLord', 'subLord', 'subSubLord'];
+  state.updatedCuspCells = new Set();
+  state.cusps.forEach((c, i) => cuspCols.forEach(col => state.updatedCuspCells.add(i + ':' + col)));
+
   renderPlanetTable();
   renderCuspTable();
 
   const pad = n => String(n).padStart(2, '0');
   el('birthDateTime').value = `${birthUtc.getUTCFullYear()}-${pad(birthUtc.getUTCMonth() + 1)}-${pad(birthUtc.getUTCDate())}T${pad(birthUtc.getUTCHours())}:${pad(birthUtc.getUTCMinutes())}`;
   el('moonLongitude').value = chart.moonLongitude.toFixed(4);
+  el('birthDateTime').classList.add('cell-updated');
+  el('moonLongitude').classList.add('cell-updated');
+
+  BIRTH_INPUT_IDS.forEach(id => {
+    el(id).classList.remove('birth-input-pending');
+    el(id).classList.add('birth-input-submitted');
+  });
 
   el('autoChartOutput').innerHTML = renderLogicDetails(AUTO_CHART_LOGIC_TEXT) + renderLogicDetails(TIMEZONE_LOGIC_TEXT) + renderLogicDetails(PLACIDUS_LOGIC_TEXT) + renderLogicDetails(KP_SUBLORD_LOGIC_TEXT) +
     `<p>Generated chart for birth UTC instant: <strong>${birthUtc.toISOString()}</strong>. Review the Planets and Cusps tables above, then run "Compute KP Analysis" below.</p>`;
@@ -116,10 +149,14 @@ function computeEphemerisLongitudes() {
   const longitudes = computePlanetLongitudes(birthDateTime);
 
   let filled = 0;
-  state.planets.forEach(p => {
+  state.planets.forEach((p, i) => {
     if (longitudes[p.name] !== undefined) {
       p.longitude = longitudes[p.name].toFixed(4);
-      if (!p.sign) p.sign = SIGNS[Math.floor(longitudes[p.name] / 30)];
+      state.updatedPlanetCells.add(i + ':longitude');
+      if (!p.sign) {
+        p.sign = SIGNS[Math.floor(longitudes[p.name] / 30)];
+        state.updatedPlanetCells.add(i + ':sign');
+      }
       filled++;
     }
   });
@@ -319,23 +356,24 @@ function rowToObj(header, row, numericFields) {
 
 function renderPlanetTable() {
   const cols = ['name', 'sign', 'house', 'starLord', 'subLord', 'subSubLord', 'retrograde', 'longitude'];
-  el('planetTable').innerHTML = renderEditableTable('planets', state.planets, cols);
+  el('planetTable').innerHTML = renderEditableTable('planets', state.planets, cols, state.updatedPlanetCells);
   attachTableListeners('planetTable', 'planets', cols);
 }
 function renderCuspTable() {
   const cols = ['house', 'sign', 'starLord', 'subLord', 'subSubLord'];
-  el('cuspTable').innerHTML = renderEditableTable('cusps', state.cusps, cols);
+  el('cuspTable').innerHTML = renderEditableTable('cusps', state.cusps, cols, state.updatedCuspCells);
   attachTableListeners('cuspTable', 'cusps', cols);
 }
 
-function renderEditableTable(kind, rows, cols) {
+function renderEditableTable(kind, rows, cols, updatedCells) {
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   rows.forEach((row, i) => {
     html += '<tr>' + cols.map(c => {
+      const updatedClass = updatedCells && updatedCells.has(i + ':' + c) ? ' class="cell-updated"' : '';
       if (c === 'retrograde') {
-        return `<td><input type="checkbox" data-row="${i}" data-col="${c}" ${row[c] ? 'checked' : ''}></td>`;
+        return `<td><input type="checkbox" data-row="${i}" data-col="${c}"${updatedClass} ${row[c] ? 'checked' : ''}></td>`;
       }
-      return `<td><input type="text" data-row="${i}" data-col="${c}" value="${row[c] ?? ''}"></td>`;
+      return `<td><input type="text" data-row="${i}" data-col="${c}"${updatedClass} value="${row[c] ?? ''}"></td>`;
     }).join('') + '</tr>';
   });
   html += '</tbody></table>';
@@ -343,6 +381,7 @@ function renderEditableTable(kind, rows, cols) {
 }
 
 function attachTableListeners(tableId, kind, cols) {
+  const updatedCells = kind === 'planets' ? state.updatedPlanetCells : state.updatedCuspCells;
   el(tableId).querySelectorAll('input').forEach(input => {
     input.addEventListener('change', () => {
       const row = Number(input.dataset.row);
@@ -353,6 +392,8 @@ function attachTableListeners(tableId, kind, cols) {
       else if (SIGN_FIELDS.includes(col)) value = canonicalSignName(value);
       state[kind][row][col] = value;
       if (col !== 'house' && input.type !== 'checkbox') input.value = value;
+      updatedCells.delete(row + ':' + col);
+      input.classList.remove('cell-updated');
     });
   });
 }
