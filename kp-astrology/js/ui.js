@@ -33,6 +33,7 @@ function init() {
   el('generateChartBtn').addEventListener('click', generateFullChart);
   el('startLiveRpBtn').addEventListener('click', startLiveRulingPlanets);
   el('startDynamicTransitBtn').addEventListener('click', startDynamicTransitTable);
+  initRectifyTab();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -974,6 +975,149 @@ function updateDynamicTransitClockAndCountdowns(now) {
     const s = diffSec;
     countdownEl.textContent = (d > 0 ? d + 'd ' : '') + `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   });
+}
+
+// --- Birth Time Rectification ---
+let rectifyEvents = [{ type: 'marriage', date: '' }, { type: 'career', date: '' }];
+
+function initRectifyTab() {
+  el('rectifyLogicOutput').innerHTML = renderLogicDetails(RECTIFICATION_LOGIC_TEXT);
+  renderRectifyEventsTable();
+
+  const zones = (() => { try { return Intl.supportedValuesOf('timeZone'); } catch (e) { return null; } })();
+  if (zones && zones.length) {
+    el('rectifyIanaZone').innerHTML = zones.map(z => `<option value="${z}">${z}</option>`).join('');
+    const guessed = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (guessed && zones.includes(guessed)) el('rectifyIanaZone').value = guessed;
+  } else {
+    el('rectifyIanaZone').innerHTML = '<option value="">(not supported — use UTC offset mode)</option>';
+    el('rectifyTzMode').value = 'offset';
+  }
+  toggleRectifyTzModeInputs();
+
+  el('rectifyTzMode').addEventListener('change', toggleRectifyTzModeInputs);
+  el('addRectifyEventBtn').addEventListener('click', () => {
+    rectifyEvents.push({ type: 'marriage', date: '' });
+    renderRectifyEventsTable();
+  });
+  el('runRectifyBtn').addEventListener('click', runRectification);
+}
+
+function toggleRectifyTzModeInputs() {
+  const mode = el('rectifyTzMode').value;
+  el('rectifyIanaZoneLabel').hidden = mode !== 'iana';
+  el('rectifyUtcOffsetLabel').hidden = mode !== 'offset';
+}
+
+function renderRectifyEventsTable() {
+  const typeOptions = Object.keys(RECTIFICATION_EVENT_TYPES)
+    .map(key => `<option value="${key}">${RECTIFICATION_EVENT_TYPES[key].label}</option>`).join('');
+  let html = '<table><thead><tr><th>Event Type</th><th>Event Date</th><th></th></tr></thead><tbody>';
+  rectifyEvents.forEach((ev, i) => {
+    html += `<tr>
+      <td><select data-row="${i}" data-field="type">${typeOptions}</select></td>
+      <td><input type="date" data-row="${i}" data-field="date" value="${ev.date}"></td>
+      <td><button data-row="${i}" class="removeRectifyEventBtn">Remove</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el('rectifyEventsTable').innerHTML = html;
+
+  el('rectifyEventsTable').querySelectorAll('select, input').forEach(input => {
+    input.addEventListener('change', () => {
+      const row = Number(input.dataset.row);
+      rectifyEvents[row][input.dataset.field] = input.value;
+    });
+  });
+  el('rectifyEventsTable').querySelectorAll('.removeRectifyEventBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      rectifyEvents.splice(Number(btn.dataset.row), 1);
+      renderRectifyEventsTable();
+    });
+  });
+
+  // Restore each row's selected event type (innerHTML rebuild resets <select> to its first option).
+  rectifyEvents.forEach((ev, i) => {
+    const select = el('rectifyEventsTable').querySelector(`select[data-row="${i}"]`);
+    if (select) select.value = ev.type;
+  });
+}
+
+function runRectification() {
+  const dateStr = el('rectifyDate').value;
+  const timeStr = el('rectifyTime').value;
+  const lat = parseFloat(el('rectifyLat').value);
+  const lon = parseFloat(el('rectifyLon').value);
+  const windowMinutes = parseInt(el('rectifyWindow').value, 10);
+  const stepMinutes = parseInt(el('rectifyStep').value, 10);
+
+  if (!dateStr || !timeStr || isNaN(lat) || isNaN(lon)) {
+    el('statusMsg').textContent = 'Enter approximate birth date, time, latitude, and longitude first.';
+    return;
+  }
+  const eventsWithDates = rectifyEvents.filter(ev => ev.date);
+  if (!eventsWithDates.length) {
+    el('statusMsg').textContent = 'Add at least one known life event with a date.';
+    return;
+  }
+
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hour, minute] = timeStr.split(':').map(Number);
+
+  let centerUtc;
+  try {
+    if (el('rectifyTzMode').value === 'iana') {
+      const zone = el('rectifyIanaZone').value;
+      if (!zone) { el('statusMsg').textContent = 'Select a time zone, or switch to UTC offset mode.'; return; }
+      centerUtc = zonedLocalToUtc(year, month, day, hour, minute, zone);
+    } else {
+      centerUtc = offsetLocalToUtc(year, month, day, hour, minute, parseUtcOffsetToMinutes(el('rectifyUtcOffset').value));
+    }
+  } catch (err) {
+    el('statusMsg').textContent = 'Timezone error: ' + err.message;
+    return;
+  }
+
+  const events = eventsWithDates.map(ev => {
+    const [ey, em, ed] = ev.date.split('-').map(Number);
+    return { type: ev.type, date: new Date(Date.UTC(ey, em - 1, ed, 12, 0, 0)) };
+  });
+
+  el('statusMsg').textContent = 'Running rectification...';
+  const results = rectifyBirthTime(centerUtc, windowMinutes, stepMinutes, lat, lon, events);
+  renderRectifyResults(results, events.length);
+  el('statusMsg').textContent = `Rectification complete: ${results.length} candidate time(s) scored.`;
+}
+
+function renderRectifyResults(results, eventCount) {
+  const maxPossible = eventCount * 3;
+  const topScore = results.length ? results[0].score : 0;
+
+  let html = `<h3>Rectification Results</h3><p>Ranked best-fit first. Top score: ${topScore} / ${maxPossible}.</p>`;
+  html += '<table><thead><tr><th>Candidate Birth Time (UTC)</th><th>Score</th></tr></thead><tbody>';
+  results.forEach((r, i) => {
+    const isTop = r.score === topScore;
+    html += `<tr class="rectifyResultRow" data-idx="${i}" ${isTop ? 'style="font-weight:bold;background:#f0e6ff;"' : ''}>
+      <td>${r.candidateUtc.toISOString()}</td><td>${r.score} / ${r.maxPossible}</td></tr>`;
+  });
+  html += '</tbody></table><div id="rectifyDetailBox"></div>';
+  el('rectifyOutput').innerHTML = html;
+
+  el('rectifyOutput').querySelectorAll('.rectifyResultRow').forEach(row => {
+    row.addEventListener('click', () => renderRectifyDetail(results[Number(row.dataset.idx)]));
+  });
+  if (results.length) renderRectifyDetail(results[0]);
+}
+
+function renderRectifyDetail(result) {
+  let html = `<h4>Detail for ${result.candidateUtc.toISOString()}</h4>`;
+  html += '<table><thead><tr><th>Event</th><th>Houses</th><th>Running Lords (M/A/P)</th><th>Matches</th></tr></thead><tbody>';
+  result.perEvent.forEach(pe => {
+    const lords = [pe.runningLords.mahadasha, pe.runningLords.antardasha, pe.runningLords.pratyantardasha].filter(Boolean).join(' / ');
+    html += `<tr><td>${pe.label}</td><td>${pe.houses.join(', ')}</td><td>${lords}</td><td>${pe.matches.join(', ') || '—'}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  el('rectifyDetailBox').innerHTML = html;
 }
 
 document.addEventListener('DOMContentLoaded', init);

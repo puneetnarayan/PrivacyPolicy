@@ -67,6 +67,7 @@
 <div class="tab-strip">
   <button class="tab-button active" id="tabBtnMain" data-tab="tabMain">Chart &amp; Analysis</button>
   <button class="tab-button" id="tabBtnTransit" data-tab="tabTransit">Live Transit Table</button>
+  <button class="tab-button" id="tabBtnRectify" data-tab="tabRectify">Birth Time Rectification</button>
   <button class="tab-button" id="tabBtnSettings" data-tab="tabSettings">Settings</button>
 </div>
 
@@ -186,6 +187,41 @@
 </div>
 </div>
 
+<div class="tab-panel" id="tabRectify">
+<h2>Birth Time Rectification</h2>
+<p>Standard KP method: for known real-life events, check whether the running Mahadasha/Antardasha/Pratyantardasha lords on the event's actual date are significators of that event's houses — across a range of candidate birth times, ranked by best fit. Entirely offline.</p>
+<div id="rectifyLogicOutput"></div>
+
+<fieldset>
+  <legend>Approximate Birth Details</legend>
+  <label>Approx. Birth Date: <input type="date" id="rectifyDate"></label>
+  <label>Approx. Birth Time (local): <input type="time" id="rectifyTime" step="60"></label><br><br>
+  <label>Latitude: <input type="text" id="rectifyLat" placeholder="e.g. 28.6139"></label>
+  <label>Longitude: <input type="text" id="rectifyLon" placeholder="e.g. 77.2090"></label><br><br>
+  <label>Timezone mode:
+    <select id="rectifyTzMode">
+      <option value="iana">Time zone name</option>
+      <option value="offset">UTC offset</option>
+    </select>
+  </label>
+  <label id="rectifyIanaZoneLabel">Time zone: <select id="rectifyIanaZone"></select></label>
+  <label id="rectifyUtcOffsetLabel" hidden>UTC offset (e.g. +5:30): <input type="text" id="rectifyUtcOffset" placeholder="+5:30"></label><br><br>
+  <label>Search window (± minutes): <input type="number" id="rectifyWindow" value="30" min="1" max="720"></label>
+  <label>Step (minutes): <input type="number" id="rectifyStep" value="2" min="1" max="60"></label>
+</fieldset>
+
+<fieldset>
+  <legend>Known Life Events</legend>
+  <div id="rectifyEventsTable"></div>
+  <div class="controls"><button id="addRectifyEventBtn">+ Add Event</button></div>
+</fieldset>
+
+<div class="controls">
+  <button id="runRectifyBtn">Run Rectification</button>
+</div>
+<div id="rectifyOutput" class="output-box pastel-lavender"></div>
+</div>
+
 <div class="tab-panel" id="tabSettings">
 <h2>Settings</h2>
 <p>These choices affect every calculation in the app. Only options with a real, implemented formula can be selected — see the note below each dropdown.</p>
@@ -228,6 +264,7 @@
 <script src="js/timezone.js"></script>
 <script src="js/liveRulingPlanets.js"></script>
 <script src="js/dynamicTransit.js"></script>
+<script src="js/rectification.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/updater.js"></script>
 <script src="js/ui.js"></script>
