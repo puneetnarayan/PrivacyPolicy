@@ -57,8 +57,8 @@
 <fieldset>
   <label>Birth Date: <input type="date" id="birthLocalDate"></label>
   <label>Birth Time (local clock time at birth place): <input type="time" id="birthLocalTime" step="60"></label><br><br>
-  <label>Birth Latitude: <input type="text" id="birthLat" placeholder="e.g. 28.6139"></label>
-  <label>Birth Longitude: <input type="text" id="birthLon" placeholder="e.g. 77.2090"></label><br><br>
+  <label>Birth Latitude: <input type="text" id="birthLat" value="15.170375" placeholder="e.g. 28.6139"></label>
+  <label>Birth Longitude: <input type="text" id="birthLon" value="76.633721" placeholder="e.g. 77.2090"></label><br><br>
   <label>Timezone mode:
     <select id="timezoneMode">
       <option value="iana">Time zone name</option>
@@ -107,8 +107,8 @@
 <h2>Live Ruling Planets (Astrologer's Location)</h2>
 <p>For a horary/prashna consultation: enter where the astrologer is sitting right now, and the Ruling Planets for this exact moment are computed continuously — Ascendant and Moon sign/star/sub/sub-sub lord, and day lord — entirely offline. The side box shows a live countdown to each upcoming change.</p>
 <fieldset>
-  <label>Astrologer Latitude: <input type="text" id="astroLat" placeholder="e.g. 28.6139"></label>
-  <label>Astrologer Longitude: <input type="text" id="astroLon" placeholder="e.g. 77.2090"></label><br><br>
+  <label>Astrologer Latitude: <input type="text" id="astroLat" value="15.170375" placeholder="e.g. 28.6139"></label>
+  <label>Astrologer Longitude: <input type="text" id="astroLon" value="76.633721" placeholder="e.g. 77.2090"></label><br><br>
   <button id="startLiveRpBtn">Start Live Ruling Planets Display</button>
 </fieldset>
 <div id="liveRpLogicOutput"></div>
