@@ -1,0 +1,10 @@
+{
+  "version": "1.1.0",
+  "releaseDate": "2026-09-01",
+  "downloadUrl": "https://your-hosting-here/kp-astrology-analyzer-1.1.0-setup.exe",
+  "releaseNotes": [
+    "Improved KP calculations",
+    "Added BNN interpretations",
+    "Fixed chart rendering"
+  ]
+}

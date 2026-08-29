@@ -46,8 +46,8 @@ function generateChart(birthDateUtc, latitude, longitude) {
   for (let h = 1; h <= 12; h++) {
     const lords = deriveKpLords(cuspLongitudes[h]);
     cusps.push({
-      house: h, sign: lords.sign, starLord: lords.starLord,
-      subLord: lords.subLord, subSubLord: lords.subSubLord,
+      house: h, sign: lords.sign, nakshatra: lords.nakshatra, pada: lords.pada,
+      starLord: lords.starLord, subLord: lords.subLord, subSubLord: lords.subSubLord,
       longitude: Number(cuspLongitudes[h].toFixed(4))
     });
   }
@@ -56,7 +56,7 @@ function generateChart(birthDateUtc, latitude, longitude) {
     const lon = planetLongitudes[name];
     const lords = deriveKpLords(lon);
     return {
-      name, sign: lords.sign,
+      name, sign: lords.sign, nakshatra: lords.nakshatra, pada: lords.pada,
       house: houseContainingLongitude(lon, cuspLongitudes),
       starLord: lords.starLord, subLord: lords.subLord, subSubLord: lords.subSubLord,
       retrograde: isRetrogradeNow(name, birthDateUtc),

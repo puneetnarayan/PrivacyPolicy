@@ -52,6 +52,10 @@
   .tab-button.active { background-color: #b98cf2; color: #fff; border-color: #9a6bd8; font-weight: bold; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
+
+  .update-popup { position: fixed; bottom: 24px; right: 24px; width: 300px; background: #fff4e0; border: 2px solid #e8b95c; border-radius: 10px; padding: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 1000; }
+  .update-popup h4 { margin: 0 0 8px 0; }
+  .update-popup .controls { margin: 10px 0 0 0; }
 </style>
 </head>
 <body>
@@ -60,6 +64,7 @@
 <div class="tab-strip">
   <button class="tab-button active" id="tabBtnMain" data-tab="tabMain">Chart &amp; Analysis</button>
   <button class="tab-button" id="tabBtnTransit" data-tab="tabTransit">Live Transit Table</button>
+  <button class="tab-button" id="tabBtnSettings" data-tab="tabSettings">Settings</button>
 </div>
 
 <div class="tab-panel active" id="tabMain">
@@ -127,6 +132,7 @@
 <div class="controls">
   <button id="computeBtn">Compute KP Analysis</button>
 </div>
+<p id="settingsUsedBadge" style="font-size:0.8em;color:#666;"></p>
 
 <h2>Ruling Planets</h2>
 <div id="rulingPlanetsOutput" class="output-box pastel-pink"></div>
@@ -177,6 +183,25 @@
 </div>
 </div>
 
+<div class="tab-panel" id="tabSettings">
+<h2>Settings</h2>
+<p>These choices affect every calculation in the app. Only options with a real, implemented formula can be selected — see the note below each dropdown.</p>
+<div id="settingsLogicOutput"></div>
+<fieldset>
+  <label>Ayanamsa:
+    <select id="settingAyanamsa"></select>
+  </label><br><br>
+  <label>House System:
+    <select id="settingHouseSystem"></select>
+  </label><br><br>
+  <label>Rahu/Ketu Node Method:
+    <select id="settingNodeMethod"></select>
+  </label><br><br>
+  <button id="saveSettingsBtn">Save Settings</button>
+</fieldset>
+<div id="settingsSummaryBox" class="output-box pastel-green"></div>
+</div>
+
 <script src="js/xlsx.full.min.js"></script>
 <script src="js/astronomy.browser.min.js"></script>
 <script src="js/kpTables.js"></script>
@@ -192,6 +217,8 @@
 <script src="js/timezone.js"></script>
 <script src="js/liveRulingPlanets.js"></script>
 <script src="js/dynamicTransit.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/updater.js"></script>
 <script src="js/ui.js"></script>
 </body>
 </html>

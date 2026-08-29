@@ -53,6 +53,68 @@ function init() {
 
   startLiveRulingPlanets();
   startDynamicTransitTable();
+
+  initSettingsTab();
+  checkForUpdatesIfDue(showUpdatePopup);
+}
+
+// --- Settings ---
+function initSettingsTab() {
+  const settings = loadSettings();
+
+  const fillSelect = (selectId, options, currentValue) => {
+    el(selectId).innerHTML = options.map(o =>
+      `<option value="${o.id}" ${o.implemented ? '' : 'disabled'} ${o.id === currentValue ? 'selected' : ''}>${o.label}</option>`
+    ).join('');
+  };
+  fillSelect('settingAyanamsa', AVAILABLE_AYANAMSAS, settings.ayanamsa);
+  fillSelect('settingHouseSystem', AVAILABLE_HOUSE_SYSTEMS, settings.houseSystem);
+  fillSelect('settingNodeMethod', AVAILABLE_NODE_METHODS, settings.nodeMethod);
+
+  el('settingsLogicOutput').innerHTML = renderLogicDetails(SETTINGS_LOGIC_TEXT);
+  renderSettingsSummary(settings);
+
+  el('saveSettingsBtn').addEventListener('click', () => {
+    const newSettings = {
+      ayanamsa: el('settingAyanamsa').value,
+      houseSystem: el('settingHouseSystem').value,
+      nodeMethod: el('settingNodeMethod').value
+    };
+    saveSettings(newSettings);
+    renderSettingsSummary(newSettings);
+    el('statusMsg').textContent = 'Settings saved.';
+  });
+}
+
+function renderSettingsSummary(settings) {
+  const summary = describeSettings(settings);
+  el('settingsSummaryBox').innerHTML = `<h3>Current Settings</h3><p>${summary}</p>`;
+  el('settingsUsedBadge').textContent = 'Settings used: ' + summary;
+}
+
+// --- Update checker ---
+function showUpdatePopup(manifest) {
+  const popup = document.createElement('div');
+  popup.className = 'update-popup';
+  popup.innerHTML = `
+    <h4>KP Astrology Analyzer</h4>
+    <p>A new version is available.</p>
+    <p>Current version: ${INSTALLED_VERSION}<br>New version: ${manifest.version}</p>
+    ${manifest.releaseNotes ? '<ul>' + manifest.releaseNotes.map(n => `<li>${n}</li>`).join('') + '</ul>' : ''}
+    <div class="controls">
+      <button id="updateNowBtn">Update Now</button>
+      <button id="updateLaterBtn">Later</button>
+    </div>
+  `;
+  document.body.appendChild(popup);
+
+  const close = () => popup.remove();
+  popup.querySelector('#updateNowBtn').addEventListener('click', () => {
+    if (manifest.downloadUrl) window.open(manifest.downloadUrl, '_blank');
+    close();
+  });
+  popup.querySelector('#updateLaterBtn').addEventListener('click', close);
+  setTimeout(close, 10000);
 }
 
 function switchTab(tabId) {
@@ -120,13 +182,13 @@ function generateFullChart() {
   const chart = generateChart(birthUtc, lat, lon);
 
   state.planets = chart.planets.map(p => ({ ...p, longitude: String(p.longitude) }));
-  state.cusps = chart.cusps.map(c => ({ house: c.house, sign: c.sign, starLord: c.starLord, subLord: c.subLord, subSubLord: c.subSubLord }));
+  state.cusps = chart.cusps.map(c => ({ house: c.house, sign: c.sign, nakshatra: c.nakshatra, pada: c.pada, starLord: c.starLord, subLord: c.subLord, subSubLord: c.subSubLord }));
 
-  const planetCols = ['name', 'sign', 'house', 'starLord', 'subLord', 'subSubLord', 'retrograde', 'longitude'];
+  const planetCols = ['name', 'sign', 'nakshatra', 'pada', 'house', 'starLord', 'subLord', 'subSubLord', 'retrograde', 'longitude'];
   state.updatedPlanetCells = new Set();
   state.planets.forEach((p, i) => planetCols.forEach(c => state.updatedPlanetCells.add(i + ':' + c)));
 
-  const cuspCols = ['house', 'sign', 'starLord', 'subLord', 'subSubLord'];
+  const cuspCols = ['house', 'sign', 'nakshatra', 'pada', 'starLord', 'subLord', 'subSubLord'];
   state.updatedCuspCells = new Set();
   state.cusps.forEach((c, i) => cuspCols.forEach(col => state.updatedCuspCells.add(i + ':' + col)));
 
@@ -167,8 +229,11 @@ function computeEphemerisLongitudes() {
       p.longitude = longitudes[p.name].toFixed(4);
       state.updatedPlanetCells.add(i + ':longitude');
       if (!p.sign) {
-        p.sign = SIGNS[Math.floor(longitudes[p.name] / 30)];
-        state.updatedPlanetCells.add(i + ':sign');
+        const lords = deriveKpLords(longitudes[p.name]);
+        p.sign = lords.sign;
+        p.nakshatra = lords.nakshatra;
+        p.pada = lords.pada;
+        ['sign', 'nakshatra', 'pada'].forEach(c => state.updatedPlanetCells.add(i + ':' + c));
       }
       filled++;
     }
@@ -231,10 +296,10 @@ function canonicalizeRecords(records) {
 }
 
 function blankPlanet(name) {
-  return { name: name || '', sign: '', house: '', starLord: '', subLord: '', subSubLord: '', retrograde: false, longitude: '' };
+  return { name: name || '', sign: '', nakshatra: '', pada: '', house: '', starLord: '', subLord: '', subSubLord: '', retrograde: false, longitude: '' };
 }
 function blankCusp(house) {
-  return { house, sign: '', starLord: '', subLord: '', subSubLord: '' };
+  return { house, sign: '', nakshatra: '', pada: '', starLord: '', subLord: '', subSubLord: '' };
 }
 
 function loadSampleData() {
@@ -368,12 +433,12 @@ function rowToObj(header, row, numericFields) {
 }
 
 function renderPlanetTable() {
-  const cols = ['name', 'sign', 'house', 'starLord', 'subLord', 'subSubLord', 'retrograde', 'longitude'];
+  const cols = ['name', 'sign', 'nakshatra', 'pada', 'house', 'starLord', 'subLord', 'subSubLord', 'retrograde', 'longitude'];
   el('planetTable').innerHTML = renderEditableTable('planets', state.planets, cols, state.updatedPlanetCells);
   attachTableListeners('planetTable', 'planets', cols);
 }
 function renderCuspTable() {
-  const cols = ['house', 'sign', 'starLord', 'subLord', 'subSubLord'];
+  const cols = ['house', 'sign', 'nakshatra', 'pada', 'starLord', 'subLord', 'subSubLord'];
   el('cuspTable').innerHTML = renderEditableTable('cusps', state.cusps, cols, state.updatedCuspCells);
   attachTableListeners('cuspTable', 'cusps', cols);
 }
