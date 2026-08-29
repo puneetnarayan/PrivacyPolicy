@@ -34,6 +34,7 @@ function init() {
   el('startLiveRpBtn').addEventListener('click', startLiveRulingPlanets);
   el('startDynamicTransitBtn').addEventListener('click', startDynamicTransitTable);
   initRectifyTab();
+  initEventTimingTab();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -1118,6 +1119,203 @@ function renderRectifyDetail(result) {
   });
   html += '</tbody></table>';
   el('rectifyDetailBox').innerHTML = html;
+}
+
+// --- Event Timing & Fructification ---
+let eventTimingMonths = [];
+let eventTimingNatal = null;
+
+function initEventTimingTab() {
+  el('eventTimingLogicOutput').innerHTML = renderLogicDetails(EVENT_TIMING_LOGIC_TEXT);
+
+  const byCategory = {};
+  Object.keys(EVENT_RULES).forEach(key => {
+    const cat = EVENT_RULES[key].category;
+    (byCategory[cat] = byCategory[cat] || []).push(key);
+  });
+  el('eventTimingSelect').innerHTML = Object.keys(byCategory).map(cat =>
+    `<optgroup label="${cat}">` +
+    byCategory[cat].map(key => `<option value="${key}">${EVENT_RULES[key].label}</option>`).join('') +
+    '</optgroup>'
+  ).join('');
+
+  const today = new Date();
+  el('eventTimingStartDate').value = today.toISOString().slice(0, 10);
+
+  el('eventTimingHorizon').addEventListener('change', () => {
+    el('eventTimingCustomYearsLabel').hidden = el('eventTimingHorizon').value !== 'custom';
+  });
+  el('runEventTimingBtn').addEventListener('click', runEventTimingSearch);
+}
+
+function runEventTimingSearch() {
+  if (!state.planets.length || !state.cusps.length) {
+    el('statusMsg').textContent = 'Load/generate a chart in the Chart & Analysis tab first.';
+    return;
+  }
+  const moonLon = parseFloat(el('moonLongitude').value);
+  const birthStr = el('birthDateTime').value;
+  if (isNaN(moonLon) || !birthStr) {
+    el('statusMsg').textContent = 'Enter Moon Longitude and Birth Date/Time (UTC) in the Chart & Analysis tab first.';
+    return;
+  }
+
+  const eventKey = el('eventTimingSelect').value;
+  const horizonSel = el('eventTimingHorizon').value;
+  const years = horizonSel === 'custom' ? parseInt(el('eventTimingCustomYears').value, 10) : parseInt(horizonSel, 10);
+  const startDate = new Date(el('eventTimingStartDate').value + 'T00:00:00Z');
+  const endDate = new Date(Date.UTC(startDate.getUTCFullYear() + years, startDate.getUTCMonth(), startDate.getUTCDate()));
+  const windowThreshold = parseInt(el('eventTimingWindowThreshold').value, 10);
+  const topN = parseInt(el('eventTimingTopMonths').value, 10);
+
+  el('statusMsg').textContent = 'Searching timeline...';
+
+  eventTimingNatal = buildNatalContext(
+    state.planets.filter(p => p.name), state.cusps.filter(c => c.house),
+    moonLon, new Date(birthStr)
+  );
+
+  const promise = scorePromise(EVENT_RULES[eventKey], eventTimingNatal.significators, EVENT_TIMING_WEIGHTS);
+  renderEventTimingPromise(eventKey, promise);
+
+  eventTimingMonths = searchMonths(eventKey, eventTimingNatal, startDate, endDate);
+  renderEventTimingYears(eventKey, eventTimingMonths);
+
+  // Auto-drill into the top N months to build a ranked "Top Windows" list across the whole horizon.
+  const topMonths = [...eventTimingMonths].sort((a, b) => b.total - a.total).slice(0, topN);
+  const allWindows = [];
+  topMonths.forEach(m => {
+    const days = searchDays(eventKey, eventTimingNatal, m.year, m.month);
+    detectWindows(days, windowThreshold).forEach(w => allWindows.push({ year: m.year, month: m.month, ...w }));
+  });
+  allWindows.sort((a, b) => b.peak.total - a.peak.total);
+  renderEventTimingTopWindows(eventKey, allWindows);
+
+  el('statusMsg').textContent = `Event timing search complete: ${eventTimingMonths.length} months screened, ${topMonths.length} drilled into daily detail.`;
+}
+
+function renderEventTimingPromise(eventKey, promise) {
+  const eventDef = EVENT_RULES[eventKey];
+  el('eventTimingPromiseBox').innerHTML = `
+    <h3>Event Promise: ${eventDef.label}</h3>
+    <p><strong>${promise.promised ? 'YES — promise found' : 'NOT clearly promised'}</strong> (required houses: ${eventDef.requiredHouses.join(', ')})</p>
+    <p>${promise.bestPlanet ? `Best connecting planet: <strong>${promise.bestPlanet}</strong>, signifying houses ${promise.housesConnected.join(', ')} of ${eventDef.requiredHouses.length}.` : 'No single planet connects the required houses.'}</p>
+    <p style="font-size:0.85em;color:#666;">Timing below is only meaningful once promise is established — see the Life Topic Promise Analysis tab for a fuller promise check.</p>
+  `;
+}
+
+const LEVEL_MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function renderEventTimingTopWindows(eventKey, windows) {
+  let html = '<h3>Top Event Windows (ranked)</h3>';
+  if (!windows.length) {
+    html += '<p>No windows found at the selected threshold in the drilled-into months. Try a lower threshold or more months.</p>';
+  } else {
+    html += '<table><thead><tr><th>#</th><th>Window</th><th>Peak Date</th><th>Peak Score</th><th>Classification</th></tr></thead><tbody>';
+    windows.forEach((w, i) => {
+      const monthName = LEVEL_MONTH_NAMES[w.month];
+      html += `<tr class="eventWindowRow" data-idx="${i}" style="cursor:pointer;">
+        <td>${i + 1}</td><td>${w.startDay}-${w.endDay} ${monthName} ${w.year}</td>
+        <td>${w.peak.day} ${monthName} ${w.year}</td><td>${w.peak.total}</td><td>${w.peak.classification}</td></tr>`;
+    });
+    html += '</tbody></table>';
+  }
+  el('eventTimingWindowsBox').innerHTML = html;
+  el('eventTimingWindowsBox').querySelectorAll('.eventWindowRow').forEach(row => {
+    row.addEventListener('click', () => {
+      const w = windows[Number(row.dataset.idx)];
+      renderEventTimingMonthsForYear(eventKey, w.year);
+      renderEventTimingDays(eventKey, w.year, w.month);
+      renderEventTimingHours(eventKey, w.year, w.month, w.peak.day);
+    });
+  });
+}
+
+function renderEventTimingYears(eventKey, months) {
+  const byYear = {};
+  months.forEach(m => { (byYear[m.year] = byYear[m.year] || []).push(m); });
+
+  let html = '<h3>Years</h3><table><thead><tr><th>Year</th><th>Peak Score</th><th>Strongest Month</th></tr></thead><tbody>';
+  Object.keys(byYear).sort().forEach(year => {
+    const yearMonths = byYear[year];
+    const peak = yearMonths.reduce((b, m) => (m.total > b.total ? m : b), yearMonths[0]);
+    html += `<tr class="eventYearRow" data-year="${year}" style="cursor:pointer;">
+      <td>${year}</td><td>${peak.total} (${peak.classification})</td><td>${LEVEL_MONTH_NAMES[peak.month]}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  el('eventTimingYearsBox').innerHTML = html;
+
+  el('eventTimingYearsBox').querySelectorAll('.eventYearRow').forEach(row => {
+    row.addEventListener('click', () => renderEventTimingMonthsForYear(eventKey, Number(row.dataset.year)));
+  });
+}
+
+function renderEventTimingMonthsForYear(eventKey, year) {
+  const yearMonths = eventTimingMonths.filter(m => m.year === year);
+  let html = `<h3>Months — ${year}</h3><table><thead><tr><th>Month</th><th>Score</th><th>Classification</th></tr></thead><tbody>`;
+  yearMonths.forEach(m => {
+    html += `<tr class="eventMonthRow" data-year="${m.year}" data-month="${m.month}" style="cursor:pointer;">
+      <td>${LEVEL_MONTH_NAMES[m.month]}</td><td>${m.total}</td><td>${m.classification}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  el('eventTimingMonthsBox').innerHTML = html;
+
+  el('eventTimingMonthsBox').querySelectorAll('.eventMonthRow').forEach(row => {
+    row.addEventListener('click', () => renderEventTimingDays(eventKey, Number(row.dataset.year), Number(row.dataset.month)));
+  });
+}
+
+function renderEventTimingDays(eventKey, year, month) {
+  const days = searchDays(eventKey, eventTimingNatal, year, month);
+  let html = `<h3>Days — ${LEVEL_MONTH_NAMES[month]} ${year}</h3><table><thead><tr><th>Day</th><th>Score</th><th>Classification</th></tr></thead><tbody>`;
+  days.forEach(d => {
+    html += `<tr class="eventDayRow" data-year="${year}" data-month="${month}" data-day="${d.day}" style="cursor:pointer;">
+      <td>${d.day}</td><td>${d.total}</td><td>${d.classification}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  el('eventTimingDaysBox').innerHTML = html;
+
+  el('eventTimingDaysBox').querySelectorAll('.eventDayRow').forEach(row => {
+    row.addEventListener('click', () => renderEventTimingHours(eventKey, Number(row.dataset.year), Number(row.dataset.month), Number(row.dataset.day)));
+  });
+}
+
+function renderEventTimingHours(eventKey, year, month, day) {
+  const hours = searchHours(eventKey, eventTimingNatal, year, month, day);
+  let html = `<h3>Hours — ${day} ${LEVEL_MONTH_NAMES[month]} ${year} (UTC)</h3><table><thead><tr><th>Hour</th><th>Score</th><th>Classification</th></tr></thead><tbody>`;
+  hours.forEach(h => {
+    html += `<tr class="eventHourRow" data-idx="${h.hour}" style="cursor:pointer;">
+      <td>${String(h.hour).padStart(2, '0')}:00</td><td>${h.total}</td><td>${h.classification}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  el('eventTimingHoursBox').innerHTML = html;
+
+  el('eventTimingHoursBox').querySelectorAll('.eventHourRow').forEach(row => {
+    row.addEventListener('click', () => renderEventTimingDetail(hours[Number(row.dataset.idx)]));
+  });
+
+  // Auto-show the peak hour's detail.
+  const bestHour = hours.reduce((b, h) => (h.total > b.total ? h : b), hours[0]);
+  renderEventTimingDetail(bestHour);
+}
+
+function renderEventTimingDetail(result) {
+  const lords = [result.runningLords.mahadasha, result.runningLords.antardasha, result.runningLords.pratyantardasha, result.runningLords.sookshmadasha].filter(Boolean).join(' / ');
+  let html = `<h3>Detail — ${result.date.toISOString()}</h3>`;
+  html += `<p><strong>Activation Score: ${result.total}/100 (${result.classification})</strong></p>`;
+  html += `<p><strong>DBA:</strong> ${lords}</p>`;
+  html += `<p><strong>Required Houses:</strong> ${result.requiredHouses.join(', ')}</p>`;
+  html += '<p><strong>Score Breakdown:</strong></p><ul>';
+  html += `<li>Event Promise: ${result.breakdown.promise.score} / ${result.breakdown.promise.maxScore}</li>`;
+  html += `<li>DBA Capability: ${result.breakdown.dba.score} / ${result.breakdown.dba.maxScore}</li>`;
+  html += `<li>Transit → Significator: ${result.breakdown.transit.breakdown.significator.score} / ${result.breakdown.transit.breakdown.significator.max}</li>`;
+  html += `<li>Transit → Cusp: ${result.breakdown.transit.breakdown.cusp.score} / ${result.breakdown.transit.breakdown.cusp.max}</li>`;
+  html += `<li>Transit Star Lord: ${result.breakdown.transit.breakdown.starLord.score} / ${result.breakdown.transit.breakdown.starLord.max}</li>`;
+  html += `<li>Transit Sub Lord: ${result.breakdown.transit.breakdown.subLord.score} / ${result.breakdown.transit.breakdown.subLord.max}</li>`;
+  html += '</ul>';
+  html += '<p><strong>Positive Factors:</strong></p><ul>' + result.positiveFactors.map(f => `<li>${f}</li>`).join('') + '</ul>';
+  html += '<p><strong>Conflicting Factors:</strong></p><ul>' + (result.negativeFactors.length ? result.negativeFactors.map(f => `<li>${f}</li>`).join('') : '<li>None</li>') + '</ul>';
+  el('eventTimingDetailBox').innerHTML = html;
 }
 
 document.addEventListener('DOMContentLoaded', init);

@@ -9,9 +9,9 @@ const DASHA_LOGIC_TEXT = [
   ['1. Find the Moon\'s nakshatra (27 equal 13°20\' divisions of the zodiac) from its birth longitude, and that nakshatra\'s ruling star lord — this is the first Mahadasha lord.'],
   ['2. Find how far the Moon has traveled through that nakshatra (elapsed fraction) to compute the balance of the first Mahadasha already elapsed at birth vs. remaining.'],
   ['3. The 9 Mahadasha lords run in a fixed cycle (Ketu, Venus, Sun, Moon, Mars, Rahu, Jupiter, Saturn, Mercury) with fixed total years each (adding to 120), starting from the birth lord\'s remaining balance and then continuing full-length through the rest of the cycle.'],
-  ['4. Each Mahadasha is subdivided into 9 Antardashas, each Antardasha into 9 Pratyantardashas — always the same 9-lord cycle, started from that period\'s own lord, with each sub-period\'s length proportional to its lord\'s share of the 120-year cycle.'],
+  ['4. Each Mahadasha is subdivided into 9 Antardashas, each Antardasha into 9 Pratyantardashas, and (optionally, levels:4) each Pratyantardasha into 9 Sookshmadashas — always the same 9-lord cycle, started from that period\'s own lord, with each sub-period\'s length proportional to its lord\'s share of the 120-year cycle.'],
   [''],
-  ['This produces a full nested timeline (Mahadasha > Antardasha > Pratyantardasha) with exact start/end dates, used throughout KP to time when a house\'s significators (and hence its promised events) are expected to fructify.']
+  ['This produces a full nested timeline (Mahadasha > Antardasha > Pratyantardasha > optionally Sookshmadasha) with exact start/end dates, used throughout KP to time when a house\'s significators (and hence its promised events) are expected to fructify.']
 ];
 
 function addYearsFraction(date, years) {
@@ -30,7 +30,7 @@ function sequenceStartingFrom(lord) {
 // mahadashas[i] = { lord, start, end, years, antardashas: [ { lord, start, end, pratyantardashas: [...] } ] }
 function computeVimshottariDasha(moonLongitude, birthDateTime, opts) {
   opts = opts || {};
-  const levels = opts.levels || 3; // 1=maha, 2=+antar, 3=+pratyantar
+  const levels = opts.levels || 3; // 1=maha, 2=+antar, 3=+pratyantar, 4=+sookshma
 
   const nak = nakshatraFromLongitude(moonLongitude);
   if (!nak) throw new Error('Invalid Moon longitude: ' + moonLongitude);
@@ -52,7 +52,7 @@ function computeVimshottariDasha(moonLongitude, birthDateTime, opts) {
     const end = addYearsFraction(start, durationYears);
     const maha = { lord, start, end, years: durationYears };
     if (levels >= 2) {
-      maha.antardashas = buildSubPeriods(lord, start, end, levels >= 3);
+      maha.antardashas = buildSubPeriods(lord, start, end, levels, 2);
     }
     mahadashas.push(maha);
     cursor = end;
@@ -61,12 +61,14 @@ function computeVimshottariDasha(moonLongitude, birthDateTime, opts) {
   return { birthNakshatra: nak, balance, mahadashas };
 }
 
-// Builds Antardasha periods within one Mahadasha, proportional to each planet's
-// Vimshottari years out of the 120-year cycle. Optionally recurses one more
-// level for Pratyantardasha.
-function buildSubPeriods(mahaLord, start, end, includePratyantar) {
+// Builds one level of sub-periods (Antardasha, Pratyantardasha, or
+// Sookshmadasha), proportional to each planet's Vimshottari years out of the
+// 120-year cycle, recursing deeper while maxLevels allows. depth is this
+// call's own level number (Antardasha=2, Pratyantardasha=3, Sookshmadasha=4);
+// maxLevels is the overall levels requested (2, 3, or 4).
+function buildSubPeriods(parentLord, start, end, maxLevels, depth) {
   const totalMs = end.getTime() - start.getTime();
-  const order = sequenceStartingFrom(mahaLord);
+  const order = sequenceStartingFrom(parentLord);
   const periods = [];
   let cursor = start;
   order.forEach((subLord, i) => {
@@ -75,8 +77,9 @@ function buildSubPeriods(mahaLord, start, end, includePratyantar) {
     const periodStart = cursor;
     const periodEnd = isLast ? end : new Date(cursor.getTime() + totalMs * fraction);
     const period = { lord: subLord, start: periodStart, end: periodEnd };
-    if (includePratyantar) {
-      period.pratyantardashas = buildSubPeriods(subLord, periodStart, periodEnd, false);
+    if (maxLevels > depth) {
+      const childKey = depth === 2 ? 'pratyantardashas' : 'sookshmadashas';
+      period[childKey] = buildSubPeriods(subLord, periodStart, periodEnd, maxLevels, depth + 1);
     }
     periods.push(period);
     cursor = periodEnd;
@@ -93,20 +96,31 @@ function yearsToYMD(years) {
   return { years: y, months: m, days: d };
 }
 
-// Finds which mahadasha/antardasha/pratyantardasha is active on a given date.
+// Finds which mahadasha/antardasha/pratyantardasha (and sookshmadasha, if the
+// dasha was computed with levels:4) is active on a given date.
 function findActivePeriod(dashaResult, onDate) {
   const t = onDate.getTime();
   for (const maha of dashaResult.mahadashas) {
     if (t >= maha.start.getTime() && t < maha.end.getTime()) {
-      const result = { mahadasha: maha.lord };
+      const result = { mahadasha: maha.lord, mahadashaRange: { start: maha.start, end: maha.end } };
       if (maha.antardashas) {
         for (const antar of maha.antardashas) {
           if (t >= antar.start.getTime() && t < antar.end.getTime()) {
             result.antardasha = antar.lord;
+            result.antardashaRange = { start: antar.start, end: antar.end };
             if (antar.pratyantardashas) {
               for (const praty of antar.pratyantardashas) {
                 if (t >= praty.start.getTime() && t < praty.end.getTime()) {
                   result.pratyantardasha = praty.lord;
+                  result.pratyantardashaRange = { start: praty.start, end: praty.end };
+                  if (praty.sookshmadashas) {
+                    for (const sook of praty.sookshmadashas) {
+                      if (t >= sook.start.getTime() && t < sook.end.getTime()) {
+                        result.sookshmadasha = sook.lord;
+                        result.sookshmadashaRange = { start: sook.start, end: sook.end };
+                      }
+                    }
+                  }
                 }
               }
             }

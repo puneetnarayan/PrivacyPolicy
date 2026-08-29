@@ -5,6 +5,27 @@ clear what's real vs. deferred at any point.
 
 ## Done
 
+- **Event Timing & Fructification Engine** (`js/eventRules.js`,
+  `js/eventTimingEngine.js`, "Event Timing" tab): searches a configurable
+  future horizon (1-20 years or custom) for when a promised event is likely
+  to fructify, combining Event Promise (significators.js), DBA Capability
+  (dasha.js, extended to a 4th Sookshmadasha level), and Transit Activation
+  (ephemeris.js + kpSubLords.js) into one 0-100 "Astrological Activation
+  Score" (never called a probability). Uses progressive-resolution search
+  (month screening -> daily detail for the top-N months -> hourly detail
+  on demand for a clicked day) rather than computing every hour of a
+  multi-year horizon — a 2-year search with 3 months drilled to daily/hourly
+  detail completes in about 1.5 seconds. Every score shows its full
+  breakdown plus separately-listed positive and conflicting factors. 32
+  starter event definitions across 8 categories (Relationships, Career,
+  Finance, Property, Education, Family, Travel, Legal) live in one plain,
+  JSON-shaped config object — editable without touching any function.
+  Reuses the CURRENTLY LOADED chart (state.planets/state.cusps) from the
+  Chart & Analysis tab; introduces no new astronomical calculation.
+  Year -> Month -> Day -> Hour drill-down and a ranked "Top Windows" list
+  are implemented as clickable tables, not a graphical calendar-grid
+  widget — a deliberate scoping choice given the size of the rest of the
+  request, not an oversight.
 - **Real Swiss Ephemeris, compiled to WebAssembly** (`ephemeris/`,
   `js/swissephBridge.js`): via the `swisseph-wasm` npm package (GPL-3.0-or-later,
   itself built from the official AGPL-3.0-or-later Swiss Ephemeris — fine for

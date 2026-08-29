@@ -68,6 +68,7 @@
   <button class="tab-button active" id="tabBtnMain" data-tab="tabMain">Chart &amp; Analysis</button>
   <button class="tab-button" id="tabBtnTransit" data-tab="tabTransit">Live Transit Table</button>
   <button class="tab-button" id="tabBtnRectify" data-tab="tabRectify">Birth Time Rectification</button>
+  <button class="tab-button" id="tabBtnEventTiming" data-tab="tabEventTiming">Event Timing</button>
   <button class="tab-button" id="tabBtnSettings" data-tab="tabSettings">Settings</button>
 </div>
 
@@ -222,6 +223,55 @@
 <div id="rectifyOutput" class="output-box pastel-lavender"></div>
 </div>
 
+<div class="tab-panel" id="tabEventTiming">
+<h2>Event Timing &amp; Fructification</h2>
+<p>Uses the CURRENTLY LOADED chart (Chart &amp; Analysis tab) — significators, cusps, and Vimshottari dasha, unchanged — plus transiting planet positions to search for when a promised event is most likely to fructify. Entirely offline. This is a screening tool, not a guarantee: it reports an <strong>Astrological Activation Score</strong>, never a probability of the event occurring.</p>
+<div id="eventTimingLogicOutput"></div>
+
+<fieldset>
+  <legend>Event &amp; Search Setup</legend>
+  <label>Event: <select id="eventTimingSelect"></select></label><br><br>
+  <label>Search horizon:
+    <select id="eventTimingHorizon">
+      <option value="1">1 year</option>
+      <option value="2">2 years</option>
+      <option value="3" selected>3 years</option>
+      <option value="5">5 years</option>
+      <option value="10">10 years</option>
+      <option value="20">20 years</option>
+      <option value="custom">Custom</option>
+    </select>
+  </label>
+  <label id="eventTimingCustomYearsLabel" hidden>Custom years: <input type="number" id="eventTimingCustomYears" value="3" min="1" max="50"></label><br><br>
+  <label>Search start date: <input type="date" id="eventTimingStartDate"></label><br><br>
+  <label>Window threshold (min score to count as a "window"):
+    <select id="eventTimingWindowThreshold">
+      <option value="50">50 — Possible</option>
+      <option value="65" selected>65 — Favourable</option>
+      <option value="80">80 — Strong</option>
+      <option value="90">90 — Peak Window</option>
+    </select>
+  </label><br><br>
+  <label>Months to drill into (top N by score): <input type="number" id="eventTimingTopMonths" value="5" min="1" max="20"></label>
+</fieldset>
+
+<div class="controls">
+  <button id="runEventTimingBtn">Find Timing</button>
+</div>
+<div id="eventTimingPromiseBox" class="output-box pastel-yellow"></div>
+<div id="eventTimingWindowsBox" class="output-box pastel-peach"></div>
+
+<div class="rp-live-container">
+  <div class="rp-box pastel-blue" id="eventTimingYearsBox"></div>
+  <div class="rp-box pastel-mint" id="eventTimingMonthsBox"></div>
+</div>
+<div class="rp-live-container">
+  <div class="rp-box pastel-lavender" id="eventTimingDaysBox"></div>
+  <div class="rp-box pastel-aqua" id="eventTimingHoursBox"></div>
+</div>
+<div id="eventTimingDetailBox" class="output-box pastel-green"></div>
+</div>
+
 <div class="tab-panel" id="tabSettings">
 <h2>Settings</h2>
 <p>These choices affect every calculation in the app. Only options with a real, implemented formula can be selected — see the note below each dropdown.</p>
@@ -265,6 +315,8 @@
 <script src="js/liveRulingPlanets.js"></script>
 <script src="js/dynamicTransit.js"></script>
 <script src="js/rectification.js"></script>
+<script src="js/eventRules.js"></script>
+<script src="js/eventTimingEngine.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/updater.js"></script>
 <script src="js/ui.js"></script>
