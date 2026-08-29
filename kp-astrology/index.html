@@ -19,12 +19,26 @@
   .birth-input-pending { background-color: #ffd6d6; }
   .birth-input-submitted { background-color: #ffc266; }
   .rp-live-container { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
-  .rp-box { border: 2px solid #888; border-radius: 8px; padding: 12px 16px; background: #f9f9f9; min-width: 280px; flex: 1 1 320px; }
+  .rp-box { border: 2px solid #888; border-radius: 8px; padding: 12px 16px; min-width: 280px; flex: 1 1 320px; }
   .rp-box h3 { margin-top: 0; }
   .countdown-list { list-style: none; padding: 0; margin: 0; }
-  .countdown-list li { padding: 8px 0; border-bottom: 1px solid #ddd; }
+  .countdown-list li { padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.1); }
   .countdown-list li:last-child { border-bottom: none; }
   .countdown { font-family: monospace; font-size: 1.1em; font-weight: bold; color: #a04000; }
+
+  /* Boxed display used for each results section, each with its own pastel color */
+  .output-box { border: 1px solid rgba(0,0,0,0.15); border-radius: 8px; padding: 12px 16px; margin: 10px 0; }
+  .output-box table { background: transparent; }
+  .pastel-blue      { background-color: #e3f2fd; }
+  .pastel-peach     { background-color: #ffe8d6; }
+  .pastel-lavender  { background-color: #f1e6ff; }
+  .pastel-mint      { background-color: #e0f7ec; }
+  .pastel-yellow    { background-color: #fff9db; }
+  .pastel-pink      { background-color: #ffe3ec; }
+  .pastel-aqua      { background-color: #e0fbfc; }
+  .pastel-green     { background-color: #eaf7e0; }
+  .pastel-orange    { background-color: #ffedd9; }
+  .pastel-cyan      { background-color: #dff7fb; }
 </style>
 </head>
 <body>
@@ -69,18 +83,18 @@
   <label id="utcOffsetLabel" hidden>UTC offset (e.g. +5:30): <input type="text" id="utcOffset" placeholder="+5:30"></label><br><br>
   <button id="generateChartBtn">Generate Full Chart (Offline)</button>
 </fieldset>
-<div id="autoChartOutput"></div>
+<div id="autoChartOutput" class="output-box pastel-peach"></div>
 
 <h2>Ephemeris (offline, no internet used)</h2>
 <p>If you already have cusps from elsewhere and just want exact planet longitudes filled in (instead of a full auto-generated chart above), use this. Enables combustion, conjunction, and aspect checks below.</p>
 <fieldset>
   <button id="computeEphemerisBtn">Compute Exact Longitudes from Birth Date/Time (UTC) Above</button>
 </fieldset>
-<div id="ephemerisOutput"></div>
+<div id="ephemerisOutput" class="output-box pastel-blue"></div>
 
 <h2>Planetary Relations (Combustion / Conjunction / Aspect)</h2>
 <p>Requires exact longitudes above (or typed manually into the Planets table's Longitude column).</p>
-<div id="planetaryRelationsOutput"></div>
+<div id="planetaryRelationsOutput" class="output-box pastel-lavender"></div>
 
 <h2>Transit Snapshot</h2>
 <p>Exact planetary positions (and whole-sign aspects) for any date — offline ephemeris, no internet used. Use alongside the running dasha lord to judge event timing.</p>
@@ -88,21 +102,21 @@
   <label>Date/Time to check: <input type="datetime-local" id="transitMoment"></label>
   <button id="computeTransitBtn">Compute Transit Snapshot</button>
 </div>
-<div id="transitOutput"></div>
+<div id="transitOutput" class="output-box pastel-mint"></div>
 
 <div class="controls">
   <button id="computeBtn">Compute KP Analysis</button>
 </div>
 
 <h2>Ruling Planets</h2>
-<div id="rulingPlanetsOutput"></div>
+<div id="rulingPlanetsOutput" class="output-box pastel-pink"></div>
 
 <h2>Significators</h2>
-<div id="significatorsOutput"></div>
+<div id="significatorsOutput" class="output-box pastel-yellow"></div>
 
 <h2>Vimshottari Dasha</h2>
 <p><em>Click a Mahadasha row to see Antardashas; click an Antardasha row to see Pratyantardashas.</em></p>
-<div id="dashaOutput"></div>
+<div id="dashaOutput" class="output-box pastel-aqua"></div>
 
 <h2>Live Ruling Planets (Astrologer's Location)</h2>
 <p>For a horary/prashna consultation: enter where the astrologer is sitting right now, and the Ruling Planets for this exact moment are computed continuously — Ascendant and Moon sign/star/sub/sub-sub lord, and day lord — entirely offline. The side box shows a live countdown to each upcoming change.</p>
@@ -113,8 +127,8 @@
 </fieldset>
 <div id="liveRpLogicOutput"></div>
 <div class="rp-live-container">
-  <div class="rp-box" id="liveRpBox"><p>Enter latitude/longitude above and click Start.</p></div>
-  <div class="rp-box" id="upcomingChangesBox"></div>
+  <div class="rp-box pastel-orange" id="liveRpBox"><p>Enter latitude/longitude above and click Start.</p></div>
+  <div class="rp-box pastel-cyan" id="upcomingChangesBox"></div>
 </div>
 
 <h2>Life Topic Promise Analysis</h2>

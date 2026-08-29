@@ -573,9 +573,13 @@ function renderPratyantarDetail(antar) {
   el('pratyantarDetail').innerHTML = html;
 }
 
+// Each life topic gets its own pastel-colored card, cycled through this list.
+const LIFE_TOPIC_PASTELS = ['pastel-pink', 'pastel-blue', 'pastel-yellow', 'pastel-mint', 'pastel-lavender', 'pastel-peach'];
+
 function renderLifeTopics(lifeTopics) {
-  let html = renderLogicDetails(LIFE_TOPIC_LOGIC_TEXT);
-  Object.values(lifeTopics).forEach(result => {
+  let html = renderLogicDetails(LIFE_TOPIC_LOGIC_TEXT) + '<div class="rp-live-container">';
+  Object.values(lifeTopics).forEach((result, i) => {
+    html += `<div class="rp-box ${LIFE_TOPIC_PASTELS[i % LIFE_TOPIC_PASTELS.length]}">`;
     html += `<h3>${result.topic.label}</h3>`;
     html += `<p><em>${result.topic.note}</em></p>`;
     html += `<p><strong>Favorable houses:</strong> ${result.topic.favorable.join(', ')} &nbsp; <strong>Obstacle houses:</strong> ${result.topic.obstacles.join(', ')}</p>`;
@@ -592,7 +596,9 @@ function renderLifeTopics(lifeTopics) {
     html += '</tbody></table>';
     html += `<p><strong>Verdict:</strong> ${result.verdict}</p>`;
     html += `<p><strong>Timing:</strong> ${result.timingNote}</p>`;
+    html += '</div>';
   });
+  html += '</div>';
   el('lifeTopicsOutput').innerHTML = html;
 }
 
