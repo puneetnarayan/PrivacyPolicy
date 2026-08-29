@@ -74,6 +74,17 @@ clear what's real vs. deferred at any point.
   days, 4-second timeout, fails silently offline, proper numeric semver
   comparison (not string comparison), 10-second auto-closing popup, never
   blocks startup. Client-side only — see "Deferred" below.
+- **Marriage Longevity Score** (`js/eventTimingEngine.js`, Event Timing tab):
+  a natal-only 0-100 score (shown only for the Marriage / Separation-Divorce
+  events) checking whether the 7th cusp's sub lord/sub-sub lord chain, the
+  2nd/7th/11th lords, the Rahu-Ketu axis, and the 7th cusp's star lord lean
+  toward 2/7/11 (stability) or 6/10/12 (separation). Unlike the rest of the
+  Event Timing tab, this does not depend on a candidate date — it is a
+  structural read of the natal chart, meant to be read alongside the
+  Separation/Divorce timing search to see when (if ever) a vulnerable
+  wiring actually gets activated by a dasha period. Reuses only
+  significators.js output; no new astronomical calculation. Flagged in-app
+  as one documented rule set, not settled classical doctrine.
 - **Pada** (nakshatra quarter) added to `kpSubLords.js` and shown in the
   Planets/Cusps tables.
 - **Electron scaffold** (`package.json`, `main.js`): wraps the existing
