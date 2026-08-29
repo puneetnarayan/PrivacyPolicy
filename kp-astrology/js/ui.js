@@ -46,6 +46,8 @@ function init() {
   ['birthDateTime', 'moonLongitude'].forEach(id => {
     el(id).addEventListener('input', () => el(id).classList.remove('cell-updated'));
   });
+
+  startLiveRulingPlanets();
 }
 
 function toggleTimezoneModeInputs() {
