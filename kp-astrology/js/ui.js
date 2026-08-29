@@ -56,6 +56,18 @@ function init() {
 
   initSettingsTab();
   checkForUpdatesIfDue(showUpdatePopup);
+  initEngineStatusBadge();
+}
+
+function initEngineStatusBadge() {
+  const render = () => {
+    el('engineStatusBadge').textContent = window.SWISSEPH_READY
+      ? 'Calculation engine: Swiss Ephemeris (WASM)'
+      : 'Calculation engine: astronomy-engine (fallback — Swiss Ephemeris still loading or unavailable)';
+  };
+  render();
+  document.addEventListener('swisseph-ready', render);
+  document.addEventListener('swisseph-load-failed', render);
 }
 
 // --- Settings ---
@@ -84,6 +96,21 @@ function initSettingsTab() {
     renderSettingsSummary(newSettings);
     el('statusMsg').textContent = 'Settings saved.';
   });
+
+  el('checkUpdatesNowBtn').addEventListener('click', () => {
+    el('updateCheckStatus').textContent = 'Checking...';
+    checkForUpdatesNow({
+      onUpdateAvailable: manifest => {
+        el('updateCheckStatus').textContent = '';
+        showUpdatePopup(manifest);
+      },
+      onUpToDate: () => { el('updateCheckStatus').textContent = "You're up to date (v" + INSTALLED_VERSION + ')'; },
+      onNetworkError: () => {
+        el('updateCheckStatus').textContent = '';
+        showNoInternetPopup();
+      }
+    });
+  });
 }
 
 function renderSettingsSummary(settings) {
@@ -93,6 +120,26 @@ function renderSettingsSummary(settings) {
 }
 
 // --- Update checker ---
+
+// "No internet" popup: auto-closes after 10 seconds OR immediately on
+// Cancel, whichever happens first — per explicit request, unlike the silent
+// background weekly check.
+function showNoInternetPopup() {
+  const popup = document.createElement('div');
+  popup.className = 'update-popup no-internet';
+  popup.innerHTML = `
+    <h4>KP Astrology Analyzer</h4>
+    <p>No internet connection — could not check for updates.</p>
+    <div class="controls">
+      <button id="noInternetCancelBtn">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(popup);
+  const close = () => popup.remove();
+  popup.querySelector('#noInternetCancelBtn').addEventListener('click', close);
+  setTimeout(close, 10000);
+}
+
 function showUpdatePopup(manifest) {
   const popup = document.createElement('div');
   popup.className = 'update-popup';
@@ -101,20 +148,71 @@ function showUpdatePopup(manifest) {
     <p>A new version is available.</p>
     <p>Current version: ${INSTALLED_VERSION}<br>New version: ${manifest.version}</p>
     ${manifest.releaseNotes ? '<ul>' + manifest.releaseNotes.map(n => `<li>${n}</li>`).join('') + '</ul>' : ''}
-    <div class="controls">
-      <button id="updateNowBtn">Update Now</button>
-      <button id="updateLaterBtn">Later</button>
+    <div id="updatePopupBody">
+      <div class="controls">
+        <button id="updateNowBtn">Update Now</button>
+        <button id="updateLaterBtn">Later</button>
+      </div>
     </div>
   `;
   document.body.appendChild(popup);
 
   const close = () => popup.remove();
+  let autoCloseTimer = setTimeout(close, 10000);
+
   popup.querySelector('#updateNowBtn').addEventListener('click', () => {
-    if (manifest.downloadUrl) window.open(manifest.downloadUrl, '_blank');
-    close();
+    clearTimeout(autoCloseTimer); // downloading can take longer than 10s — stop the auto-close once started
+    startUpdateDownload(popup, manifest, close);
   });
   popup.querySelector('#updateLaterBtn').addEventListener('click', close);
-  setTimeout(close, 10000);
+}
+
+// Downloads manifest.downloadUrl with a live progress bar, replacing the
+// popup's button row. Offers Cancel throughout. On completion, hands the
+// downloaded file to the browser's normal save flow (this app has no real
+// signing/atomic-install infrastructure yet — see ARCHITECTURE_STATUS.md).
+function startUpdateDownload(popup, manifest, close) {
+  const body = popup.querySelector('#updatePopupBody');
+  const abortController = new AbortController();
+  body.innerHTML = `
+    <p>Downloading update...</p>
+    <progress id="updateProgressBar" value="0" max="100"></progress>
+    <p id="updateProgressText" style="font-size:0.8em;color:#666;">0%</p>
+    <div class="controls"><button id="updateCancelBtn">Cancel</button></div>
+  `;
+  body.querySelector('#updateCancelBtn').addEventListener('click', () => {
+    abortController.abort();
+    close();
+  });
+
+  downloadWithProgress(manifest.downloadUrl, (loaded, total) => {
+    const bar = body.querySelector('#updateProgressBar');
+    const text = body.querySelector('#updateProgressText');
+    if (!bar) return; // popup was closed/cancelled mid-download
+    if (total) {
+      const pct = Math.round((loaded / total) * 100);
+      bar.value = pct;
+      bar.removeAttribute('indeterminate');
+      text.textContent = pct + '%  (' + (loaded / 1e6).toFixed(1) + ' / ' + (total / 1e6).toFixed(1) + ' MB)';
+    } else {
+      bar.removeAttribute('value');
+      text.textContent = (loaded / 1e6).toFixed(1) + ' MB downloaded';
+    }
+  }, abortController.signal)
+    .then(blob => {
+      if (!popup.isConnected) return; // cancelled
+      const url = URL.createObjectURL(blob);
+      const filename = manifest.downloadUrl.split('/').pop() || 'update-download';
+      body.innerHTML = `<p>Downloaded. Click below to save it, then run it to install.</p>
+        <div class="controls"><a id="saveUpdateLink" href="${url}" download="${filename}">Save Update File</a>
+        <button id="updateDoneBtn">Close</button></div>`;
+      body.querySelector('#updateDoneBtn').addEventListener('click', close);
+    })
+    .catch(err => {
+      if (!popup.isConnected) return; // cancelled — already closed
+      body.innerHTML = `<p>Download failed: ${err.message}</p><div class="controls"><button id="updateDoneBtn">Close</button></div>`;
+      body.querySelector('#updateDoneBtn').addEventListener('click', close);
+    });
 }
 
 function switchTab(tabId) {

@@ -15,7 +15,7 @@ const SETTINGS_LOGIC_TEXT = [
   ['2. Settings persist locally (in this browser) between sessions, so they don\'t need re-selecting every time.'],
   ['3. Only options with a real, implemented formula are selectable — this app will not offer a setting it can\'t actually compute.'],
   [''],
-  ['Currently implemented: Lahiri ayanamsa, Placidus houses, Mean Node for Rahu/Ketu. Additional ayanamsas/house systems require implementing their formula first (see ephemeris.js / placidusCusps.js) — this is a placeholder for that future expansion, not a claim those options work today.']
+  ['Currently implemented: Lahiri ayanamsa, Placidus houses, Mean Node for Rahu/Ketu — computed by real Swiss Ephemeris (js/swissephBridge.js) once it loads, or by this app\'s own astronomy-engine-based fallback otherwise (see the engine status line at the top of the page). Additional ayanamsas/house systems require wiring them into the bridge/fallback first — this is a placeholder for that future expansion (Swiss Ephemeris itself already supports several, including a Krishnamurti ayanamsa, not yet exposed as a setting here), not a claim those options work today.']
 ];
 
 const SETTINGS_STORAGE_KEY = 'kpAstrologyAppSettings';

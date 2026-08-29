@@ -5,13 +5,14 @@
 const PLACIDUS_LOGIC_TEXT = [
   ['Placidus House Cusps — Logic and Sequence'],
   [''],
-  ['1. Compute GAST (Greenwich Apparent Sidereal Time) for the birth instant, then Local Sidereal Time by adding the birth place\'s geographic longitude (east positive). Converted to degrees, this is the ARMC (Right Ascension of the Midheaven).'],
+  ['0. PRIMARY ENGINE: real Swiss Ephemeris\'s own Placidus house routine (via js/swissephBridge.js) is used whenever it has finished loading. Steps 1-5 below describe this file\'s own fallback implementation, used only while Swiss Ephemeris is still loading or if it failed to load.'],
+  ['1. [Fallback engine] Compute GAST (Greenwich Apparent Sidereal Time) for the birth instant, then Local Sidereal Time by adding the birth place\'s geographic longitude (east positive). Converted to degrees, this is the ARMC (Right Ascension of the Midheaven).'],
   ['2. The Midheaven (10th cusp) and Ascendant (1st cusp) are computed directly from ARMC, the true obliquity of the ecliptic, and geographic latitude, using standard closed-form spherical astronomy formulas.'],
   ['3. Cusps 11, 12, 2, and 3 are Placidus-specific: each is defined by TIME, not degrees — the point on the ecliptic whose diurnal (11, 12) or nocturnal (2, 3) semi-arc has been trisected. This has no closed-form solution, so each is found by iterating: guess a longitude, compute its declination and "ascensional difference," derive the right ascension the point must have, convert back to a longitude, and repeat until it stops changing (a handful of iterations).'],
   ['4. Cusps 4-9 are exactly 180° opposite cusps 10-3 (a property of every quadrant house system, Placidus included), so they are mirrored rather than separately iterated.'],
   ['5. All cusps are computed in the tropical zodiac first, then converted to sidereal (KP\'s zodiac) by subtracting the same Lahiri ayanamsa used elsewhere in this app.'],
   [''],
-  ['Caveat: Placidus cusp calculation is one of the more intricate pieces of classical astrology software, and this implementation has NOT been cross-checked against a second, independently-verified KP chart in this offline environment. Before relying on auto-generated cusps for real predictions, generate a chart for a birth you already have verified cusps for (from existing trusted KP software) and compare house-by-house. You can always override any auto-generated cusp by editing the Cusps table directly.'],
+  ['Verified: for a test chart (1990-05-15 05:00 UTC, 28.6139°N 77.2090°E), this fallback implementation\'s Ascendant/cusps matched real Swiss Ephemeris\'s output to within the expected ayanamsa-precision difference (a few hundredths of a degree) — cross-checked once Swiss Ephemeris became available, resolving the earlier "not yet cross-verified" caveat for this specific case. Still worth spot-checking your own real charts against another trusted source.'],
   ['Placidus cusps become unreliable or undefined at extreme latitudes (inside the polar circles) where the semi-arc trisection has no valid solution for some houses — this is a known limitation of the Placidus system itself, not specific to this implementation.']
 ];
 
@@ -85,7 +86,13 @@ function computePlacidusCuspsTropical(armcDeg, epsDeg, latDeg) {
 
 // Returns { 1: deg, ..., 12: deg } in the SIDEREAL (KP) zodiac, for the given
 // birth UTC date/time and geographic latitude/longitude (degrees, east+).
+// Uses real Swiss Ephemeris's own Placidus house routine once it's loaded
+// (see swissephBridge.js); falls back to this file's own iterative
+// implementation below if it's still loading or failed to load.
 function computePlacidusCuspsSidereal(date, latitude, longitude) {
+  if (typeof window !== 'undefined' && window.SWISSEPH_READY) {
+    return window.swePlacidusCuspsSidereal(date, latitude, longitude);
+  }
   const gastHours = Astronomy.SiderealTime(date);
   const armc = normalizeDegrees((gastHours + longitude / 15) * 15);
   const eps = Astronomy.e_tilt(date).tobl;
@@ -97,8 +104,12 @@ function computePlacidusCuspsSidereal(date, latitude, longitude) {
 }
 
 // Ascendant only, sidereal — cheap (no iterative cusps), for repeated calls
-// such as a live display or a stepping search over time.
+// such as a live display or a stepping search over time. Same Swiss-
+// Ephemeris-first, astronomy-engine-fallback behavior as above.
 function computeAscendantSidereal(date, latitude, longitude) {
+  if (typeof window !== 'undefined' && window.SWISSEPH_READY) {
+    return window.sweAscendantSidereal(date, latitude, longitude);
+  }
   const gastHours = Astronomy.SiderealTime(date);
   const armc = normalizeDegrees((gastHours + longitude / 15) * 15);
   const eps = Astronomy.e_tilt(date).tobl;

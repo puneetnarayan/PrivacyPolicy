@@ -54,12 +54,15 @@
   .tab-panel.active { display: block; }
 
   .update-popup { position: fixed; bottom: 24px; right: 24px; width: 300px; background: #fff4e0; border: 2px solid #e8b95c; border-radius: 10px; padding: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 1000; }
+  .update-popup.no-internet { background: #ffe6e6; border-color: #e88c8c; }
   .update-popup h4 { margin: 0 0 8px 0; }
   .update-popup .controls { margin: 10px 0 0 0; }
+  .update-popup progress { width: 100%; height: 16px; margin-top: 8px; }
 </style>
 </head>
 <body>
 <h1>KP Astrology Analyzer</h1>
+<p id="engineStatusBadge" style="font-size:0.8em;color:#666;">Loading calculation engine...</p>
 
 <div class="tab-strip">
   <button class="tab-button active" id="tabBtnMain" data-tab="tabMain">Chart &amp; Analysis</button>
@@ -200,9 +203,17 @@
   <button id="saveSettingsBtn">Save Settings</button>
 </fieldset>
 <div id="settingsSummaryBox" class="output-box pastel-green"></div>
+
+<h3>App Updates</h3>
+<p>Checked automatically once a week in the background (silently, unless an update is found). Use this to check right now instead of waiting.</p>
+<div class="controls">
+  <button id="checkUpdatesNowBtn">Check for Updates Now</button>
+  <span id="updateCheckStatus" style="font-size:0.85em;color:#666;"></span>
+</div>
 </div>
 
 <script src="js/xlsx.full.min.js"></script>
+<script type="module" src="js/swissephBridge.js"></script>
 <script src="js/astronomy.browser.min.js"></script>
 <script src="js/kpTables.js"></script>
 <script src="js/dasha.js"></script>

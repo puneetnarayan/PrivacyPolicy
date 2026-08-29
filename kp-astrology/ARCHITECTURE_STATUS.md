@@ -5,6 +5,32 @@ clear what's real vs. deferred at any point.
 
 ## Done
 
+- **Real Swiss Ephemeris, compiled to WebAssembly** (`ephemeris/`,
+  `js/swissephBridge.js`): via the `swisseph-wasm` npm package (GPL-3.0-or-later,
+  itself built from the official AGPL-3.0-or-later Swiss Ephemeris — fine for
+  this app's personal, single-user, non-distributed use; revisit before ever
+  sharing/hosting it). It becomes the app's calculation engine automatically
+  once loaded (typically well under a second), computing planet longitudes
+  and Placidus houses via Swiss Ephemeris's own native sidereal/house
+  routines instead of this app's hand-written approximations. If it fails to
+  load (or hasn't finished loading yet), `ephemeris.js`/`placidusCusps.js`
+  fall back to the existing astronomy-engine implementation automatically —
+  verified by deliberately blocking the .wasm file and confirming the app
+  still computes a full, correct chart. A status line at the top of the page
+  always shows which engine is active. Cross-checking the two engines against
+  each other for a real test chart resolved Placidus's earlier "not yet
+  independently verified" caveat: they agree to within ayanamsa-precision
+  (a few hundredths of a degree).
+- **Update download with progress** (`js/updater.js`, `ui.js`): "Update Now"
+  streams the download with a live progress bar (bytes/percent), Cancel
+  available throughout, then hands you the file to save and run — it does
+  not yet verify a signature or atomically replace files (still needs real
+  hosting/signing infrastructure, see below).
+- **No-internet popup**: a manual "Check for Updates Now" button (Settings
+  tab) that, on failure to reach the manifest, shows a small popup saying so
+  — auto-closing after 10 seconds or immediately on Cancel, whichever is
+  first. The silent weekly background check is unchanged (still says
+  nothing on failure, by original design).
 - **Settings module** (`js/settings.js`): Ayanamsa, House System, Node Method
   are explicit, persisted (localStorage), and shown per-chart (see the
   "Settings used" line above the Compute button, and the Settings tab).
@@ -25,11 +51,6 @@ clear what's real vs. deferred at any point.
 
 ## Deferred (by your explicit decision, not overlooked)
 
-- **Swiss Ephemeris WASM**: the app still uses `astronomy-engine` (MIT,
-  analytic/VSOP87, already verified against physical sanity checks). Swap
-  this in once you supply `swisseph.wasm` + its data files — the calculation
-  call sites (`ephemeris.js`, `placidusCusps.js`) are the only places that
-  would need to change.
 - **BNN calculations**: not implemented — need a reference for what this
   system computes before it can be built correctly.
 - **Real update hosting, code signing, atomic file replacement**: `updater.js`

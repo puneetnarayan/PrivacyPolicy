@@ -11,13 +11,14 @@
 const EPHEMERIS_LOGIC_TEXT = [
   ['Ephemeris — Logic and Sequence'],
   [''],
-  ['1. Astronomy-engine computes each planet\'s TROPICAL geocentric ecliptic longitude (0-360°) for the given date/time, entirely offline from its built-in analytic/VSOP87 models — no network call is made.'],
-  ['2. KP/Vedic astrology uses the SIDEREAL zodiac, which is offset from the tropical zodiac by the "ayanamsa" (precession of the equinoxes). This app uses the Lahiri ayanamsa (the standard for KP), via astronomy-engine\'s built-in sidereal-time support.'],
-  ['3. Sidereal longitude = Tropical longitude − Ayanamsa (wrapped to 0-360°).'],
+  ['0. PRIMARY ENGINE: the real Swiss Ephemeris, compiled to WebAssembly (js/swissephBridge.js), is used whenever it has finished loading (window.SWISSEPH_READY). It typically finishes loading within a fraction of a second of the page opening. Only if it is still loading, or failed to load at all, does this file\'s own astronomy-engine-based calculation below run instead, as an automatic, seamless fallback — you are not asked to do anything differently either way.'],
+  ['1. [Fallback engine] Astronomy-engine computes each planet\'s TROPICAL geocentric ecliptic longitude (0-360°) for the given date/time, entirely offline from its built-in analytic/VSOP87 models — no network call is made.'],
+  ['2. KP/Vedic astrology uses the SIDEREAL zodiac, which is offset from the tropical zodiac by the "ayanamsa" (precession of the equinoxes). This app uses the Lahiri ayanamsa (the standard for KP) in both engines.'],
+  ['3. [Fallback engine] Sidereal longitude = Tropical longitude − Ayanamsa (wrapped to 0-360°). Swiss Ephemeris computes this natively via its own sidereal mode instead.'],
   ['4. Rahu and Ketu are not physical planets — they are the Moon\'s two orbital nodes. This app computes the MEAN ascending node (Rahu) — the smoothed, long-term-average node position, per standard KP practice (as taught by K.S. Krishnamurti and used in most KP software) — rather than the instantaneous true node. Ketu is exactly 180° opposite it.'],
   ['5. Local sunrise for a given date and birth place (latitude/longitude) is computed for the traditional Panchang-style day-lord boundary (the weekday changes at sunrise, not midnight), used to refine the Ruling Planets\' Day Lord for early-morning births.'],
   [''],
-  ['Caveat: Ayanamsa choice (Lahiri here) is the single biggest source of disagreement between different KP software — if your other software uses a different ayanamsa, cusp/planet signs may shift by up to ~1°.']
+  ['Caveat: Ayanamsa choice (Lahiri here) is the single biggest source of disagreement between different KP software — if your other software uses a different ayanamsa, cusp/planet signs may shift by up to ~1°. Swiss Ephemeris here is licensed AGPL-3.0-or-later — fine for this app\'s personal, single-user, non-distributed use, but revisit before ever sharing or hosting this app for others.']
 ];
 
 // astronomy-engine's LAHIRI-equivalent ayanamsa isn't exposed as a named
@@ -66,7 +67,13 @@ function meanLunarNodeLongitude(date) {
 }
 
 // Computes sidereal longitudes (KP zodiac) for all 9 planets at the given date.
+// Uses real Swiss Ephemeris once it's loaded (see swissephBridge.js); falls
+// back to the astronomy-engine calculation below if it's still loading or
+// failed to load.
 function computePlanetLongitudes(date) {
+  if (typeof window !== 'undefined' && window.SWISSEPH_READY) {
+    return window.swePlanetLongitudes(date);
+  }
   const ayanamsa = lahiriAyanamsaDegrees(date);
   const result = {};
   Object.keys(BODY_NAME_MAP).forEach(name => {
@@ -80,7 +87,11 @@ function computePlanetLongitudes(date) {
 
 // Sidereal longitude of a single body — cheaper than computePlanetLongitudes()
 // when only one body is needed repeatedly (e.g. a stepping search over time).
+// Same Swiss-Ephemeris-first, astronomy-engine-fallback behavior as above.
 function computeSingleLongitude(bodyName, date) {
+  if (typeof window !== 'undefined' && window.SWISSEPH_READY) {
+    return window.sweSingleLongitude(bodyName, date);
+  }
   const ayanamsa = lahiriAyanamsaDegrees(date);
   if (bodyName === 'Rahu') return normalizeDegrees(meanLunarNodeLongitude(date) - ayanamsa);
   if (bodyName === 'Ketu') return normalizeDegrees(meanLunarNodeLongitude(date) - ayanamsa + 180);
