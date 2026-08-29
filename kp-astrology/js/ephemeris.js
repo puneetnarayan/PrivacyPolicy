@@ -14,10 +14,10 @@ const EPHEMERIS_LOGIC_TEXT = [
   ['1. Astronomy-engine computes each planet\'s TROPICAL geocentric ecliptic longitude (0-360°) for the given date/time, entirely offline from its built-in analytic/VSOP87 models — no network call is made.'],
   ['2. KP/Vedic astrology uses the SIDEREAL zodiac, which is offset from the tropical zodiac by the "ayanamsa" (precession of the equinoxes). This app uses the Lahiri ayanamsa (the standard for KP), via astronomy-engine\'s built-in sidereal-time support.'],
   ['3. Sidereal longitude = Tropical longitude − Ayanamsa (wrapped to 0-360°).'],
-  ['4. Rahu and Ketu are not physical planets — they are the Moon\'s two orbital nodes. This app computes the TRUE ascending node (Rahu): the Moon\'s instantaneous orbital plane (from its geocentric position and velocity vectors) intersected with the ecliptic, converted to sidereal — not the smoothed mean-node formula. Ketu is exactly 180° opposite it.'],
+  ['4. Rahu and Ketu are not physical planets — they are the Moon\'s two orbital nodes. This app computes the MEAN ascending node (Rahu) — the smoothed, long-term-average node position, per standard KP practice (as taught by K.S. Krishnamurti and used in most KP software) — rather than the instantaneous true node. Ketu is exactly 180° opposite it.'],
   ['5. Local sunrise for a given date and birth place (latitude/longitude) is computed for the traditional Panchang-style day-lord boundary (the weekday changes at sunrise, not midnight), used to refine the Ruling Planets\' Day Lord for early-morning births.'],
   [''],
-  ['Caveat: this is the TRUE node (not the smoothed mean node) for Rahu/Ketu — it oscillates by roughly ±1.5° around the mean node position over an ~18.6-year cycle, so it will disagree by up to that much with software using the mean-node convention. Ayanamsa choice (Lahiri here) is the single biggest source of disagreement between different KP software — if your other software uses a different ayanamsa, cusp/planet signs may shift by up to ~1°.']
+  ['Caveat: Ayanamsa choice (Lahiri here) is the single biggest source of disagreement between different KP software — if your other software uses a different ayanamsa, cusp/planet signs may shift by up to ~1°.']
 ];
 
 // astronomy-engine's LAHIRI-equivalent ayanamsa isn't exposed as a named
@@ -55,25 +55,14 @@ function tropicalLongitude(bodyName, date) {
   return normalizeDegrees(ecliptic.elon);
 }
 
-const RAD2DEG = 180 / Math.PI;
-
-// True lunar ascending node (Rahu) longitude, tropical. Unlike the mean node
-// (a smoothed formula), this uses the Moon's actual instantaneous orbital
-// plane: geocentric position (r) and velocity (v) vectors give the orbit's
-// angular momentum vector h = r × v, which is normal to that plane. Rotated
-// into the ecliptic frame, h's longitude (offset 90°) gives the ascending
-// node — where the Moon's real, wobbling orbital plane crosses the ecliptic
-// right now, not its long-term average.
-function trueLunarNodeLongitude(date) {
-  const state = Astronomy.GeoMoonState(date);
-  const hx = state.y * state.vz - state.z * state.vy;
-  const hy = state.z * state.vx - state.x * state.vz;
-  const hz = state.x * state.vy - state.y * state.vx;
-  const angularMomentumEquatorial = new Astronomy.Vector(hx, hy, hz, state.t);
-  const eqjToEcl = Astronomy.Rotation_EQJ_ECL();
-  const angularMomentumEcliptic = Astronomy.RotateVector(eqjToEcl, angularMomentumEquatorial);
-  const ascendingNode = Math.atan2(angularMomentumEcliptic.x, -angularMomentumEcliptic.y) * RAD2DEG;
-  return normalizeDegrees(ascendingNode);
+// Mean lunar ascending node (Rahu) longitude, tropical — the standard KP
+// convention: a smoothed long-term formula (not the Moon's instantaneous,
+// wobbling orbital plane), accurate to a few arc-minutes.
+function meanLunarNodeLongitude(date) {
+  const jd = astronomyDateToJulianDay(date);
+  const t = (jd - 2451545.0) / 36525.0;
+  const omega = 125.0445479 - 1934.1362891 * t + 0.0020754 * t * t + t * t * t / 467441 - t * t * t * t / 60616000;
+  return normalizeDegrees(omega);
 }
 
 // Computes sidereal longitudes (KP zodiac) for all 9 planets at the given date.
@@ -83,7 +72,7 @@ function computePlanetLongitudes(date) {
   Object.keys(BODY_NAME_MAP).forEach(name => {
     result[name] = normalizeDegrees(tropicalLongitude(name, date) - ayanamsa);
   });
-  const rahuTropical = trueLunarNodeLongitude(date);
+  const rahuTropical = meanLunarNodeLongitude(date);
   result.Rahu = normalizeDegrees(rahuTropical - ayanamsa);
   result.Ketu = normalizeDegrees(result.Rahu + 180);
   return result;
@@ -93,8 +82,8 @@ function computePlanetLongitudes(date) {
 // when only one body is needed repeatedly (e.g. a stepping search over time).
 function computeSingleLongitude(bodyName, date) {
   const ayanamsa = lahiriAyanamsaDegrees(date);
-  if (bodyName === 'Rahu') return normalizeDegrees(trueLunarNodeLongitude(date) - ayanamsa);
-  if (bodyName === 'Ketu') return normalizeDegrees(trueLunarNodeLongitude(date) - ayanamsa + 180);
+  if (bodyName === 'Rahu') return normalizeDegrees(meanLunarNodeLongitude(date) - ayanamsa);
+  if (bodyName === 'Ketu') return normalizeDegrees(meanLunarNodeLongitude(date) - ayanamsa + 180);
   return normalizeDegrees(tropicalLongitude(bodyName, date) - ayanamsa);
 }
 

@@ -32,6 +32,10 @@ function init() {
   el('computeTransitBtn').addEventListener('click', computeTransitSnapshot);
   el('generateChartBtn').addEventListener('click', generateFullChart);
   el('startLiveRpBtn').addEventListener('click', startLiveRulingPlanets);
+  el('startDynamicTransitBtn').addEventListener('click', startDynamicTransitTable);
+  document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
   el('timezoneMode').addEventListener('change', toggleTimezoneModeInputs);
   populateIanaZoneOptions();
   toggleTimezoneModeInputs();
@@ -48,6 +52,12 @@ function init() {
   });
 
   startLiveRulingPlanets();
+  startDynamicTransitTable();
+}
+
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === tabId));
+  document.querySelectorAll('.tab-button').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
 }
 
 function toggleTimezoneModeInputs() {
@@ -722,6 +732,84 @@ function updateLiveRpClockAndCountdowns(now) {
     const m = Math.floor(diff / 60); diff -= m * 60;
     const s = diff;
     countdownEl.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  });
+}
+
+// --- Dynamic Transit Table (all 9 planets, live) ---
+let dynTransitTimer = null;
+let dynTransitLat = null;
+let dynTransitLon = null;
+let dynTransitUpcoming = [];
+
+function startDynamicTransitTable() {
+  dynTransitLat = parseFloat(el('transitLat').value);
+  dynTransitLon = parseFloat(el('transitLon').value);
+  if (isNaN(dynTransitLat) || isNaN(dynTransitLon)) {
+    el('statusMsg').textContent = 'Enter latitude and longitude for the Live Transit Table first.';
+    return;
+  }
+  if (dynTransitTimer) clearInterval(dynTransitTimer);
+  el('dynamicTransitLogicOutput').innerHTML = renderLogicDetails(DYNAMIC_TRANSIT_LOGIC_TEXT);
+  refreshDynamicTransitTable();
+  dynTransitTimer = setInterval(tickDynamicTransitTable, 1000);
+}
+
+function refreshDynamicTransitTable() {
+  const now = new Date();
+  const table = computeTransitTable(now, dynTransitLat, dynTransitLon);
+  dynTransitUpcoming = computeAllPlanetUpcomingChanges(now);
+  renderDynamicTransitTableBox(table, now);
+  renderDynamicTransitCountdownBox(dynTransitUpcoming);
+}
+
+function tickDynamicTransitTable() {
+  const now = new Date();
+  if (dynTransitUpcoming.length && dynTransitUpcoming[0].changeAt.getTime() <= now.getTime()) {
+    refreshDynamicTransitTable();
+    return;
+  }
+  updateDynamicTransitClockAndCountdowns(now);
+}
+
+function renderDynamicTransitTableBox(table, now) {
+  let html = `<h3>Live Transit Table</h3><p id="dynTransitClock" style="font-size:0.8em;color:#666;"></p>`;
+  html += '<table><thead><tr><th>Planet</th><th>Sign</th><th>Nakshatra</th><th>Star Lord</th><th>Sub Lord</th><th>Sub-Sub Lord</th><th>House</th></tr></thead><tbody>';
+  table.forEach(p => {
+    html += `<tr><td>${p.name}</td><td>${p.sign}</td><td>${p.nakshatra}</td><td>${p.starLord}</td><td>${p.subLord}</td><td>${p.subSubLord}</td><td>${p.house}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  el('dynamicTransitTableBox').innerHTML = html;
+}
+
+const DYNAMIC_TRANSIT_COUNTDOWN_LIMIT = 20;
+
+function renderDynamicTransitCountdownBox(upcoming) {
+  const shown = upcoming.slice(0, DYNAMIC_TRANSIT_COUNTDOWN_LIMIT);
+  let html = '<h3>Upcoming Changes (soonest first)</h3><ul class="countdown-list">';
+  shown.forEach(u => {
+    const fromLabel = u.fromKey.split('|').pop();
+    const toLabel = u.toKey.split('|').pop();
+    html += `<li><strong>${u.body} — ${LEVEL_LABEL[u.level]}</strong><br>${fromLabel} &rarr; ${toLabel} at ${u.changeAt.toLocaleString()}<br><span class="countdown" data-target="${u.changeAt.getTime()}">--:--:--</span></li>`;
+  });
+  html += '</ul>';
+  if (upcoming.length > shown.length) {
+    html += `<p style="font-size:0.8em;color:#666;">${upcoming.length - shown.length} more (slower, further-out) changes not shown.</p>`;
+  }
+  el('dynamicTransitCountdownBox').innerHTML = html || '<h3>Upcoming Changes</h3><p>None found in the search window.</p>';
+  updateDynamicTransitClockAndCountdowns(new Date());
+}
+
+function updateDynamicTransitClockAndCountdowns(now) {
+  const clock = el('dynTransitClock');
+  if (clock) clock.textContent = now.toLocaleString();
+  document.querySelectorAll('#dynamicTransitCountdownBox .countdown').forEach(countdownEl => {
+    const target = Number(countdownEl.dataset.target);
+    let diffSec = Math.max(0, Math.round((target - now.getTime()) / 1000));
+    const d = Math.floor(diffSec / 86400); diffSec -= d * 86400;
+    const h = Math.floor(diffSec / 3600); diffSec -= h * 3600;
+    const m = Math.floor(diffSec / 60); diffSec -= m * 60;
+    const s = diffSec;
+    countdownEl.textContent = (d > 0 ? d + 'd ' : '') + `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   });
 }
 

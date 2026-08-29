@@ -39,10 +39,30 @@
   .pastel-green     { background-color: #eaf7e0; }
   .pastel-orange    { background-color: #ffedd9; }
   .pastel-cyan      { background-color: #dff7fb; }
+
+  /* Pastel buttons throughout the app */
+  button { background-color: #d9ecff; border: 1px solid #a9c6e8; border-radius: 6px; padding: 6px 14px; font-size: 0.9em; cursor: pointer; color: #2c3e50; }
+  button:hover { background-color: #c3e0ff; }
+  button:active { background-color: #aed1f7; }
+
+  /* Tab strip for new features (existing single-page content stays in "Chart & Analysis") */
+  .tab-strip { display: flex; gap: 8px; margin: 16px 0; border-bottom: 2px solid #ddd; padding-bottom: 8px; }
+  .tab-button { background-color: #f0e6ff; border: 1px solid #cbb8ee; border-radius: 6px 6px 0 0; padding: 8px 18px; font-size: 0.95em; cursor: pointer; color: #2c3e50; }
+  .tab-button:hover { background-color: #e4d3ff; }
+  .tab-button.active { background-color: #b98cf2; color: #fff; border-color: #9a6bd8; font-weight: bold; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
 </style>
 </head>
 <body>
 <h1>KP Astrology Analyzer</h1>
+
+<div class="tab-strip">
+  <button class="tab-button active" id="tabBtnMain" data-tab="tabMain">Chart &amp; Analysis</button>
+  <button class="tab-button" id="tabBtnTransit" data-tab="tabTransit">Live Transit Table</button>
+</div>
+
+<div class="tab-panel active" id="tabMain">
 <p>Enter or upload your planetary/cuspal data below. All KP rules (significators, ruling planets, Vimshottari dasha) run entirely in your browser — no data leaves this page.</p>
 
 <div class="controls">
@@ -138,6 +158,24 @@
   <button id="exportLifeTopicsBtn">Export Life Topics Report (Excel)</button>
 </div>
 <div id="lifeTopicsOutput"></div>
+</div>
+
+<div class="tab-panel" id="tabTransit">
+<h2>Live Transit Table</h2>
+<p>All 9 planets' current sidereal position for a given location, refreshing continuously, entirely offline — sign, nakshatra, star/sub/sub-sub lord, and house. The side panel counts down to each planet's next sign/nakshatra/sub-lord change.</p>
+<fieldset>
+  <label>Latitude: <input type="text" id="transitLat" value="15.170375" placeholder="e.g. 28.6139"></label>
+  <label>Longitude: <input type="text" id="transitLon" value="76.633721" placeholder="e.g. 77.2090"></label><br><br>
+  <button id="startDynamicTransitBtn">Start / Restart Live Transit Table</button>
+</fieldset>
+<div id="dynamicTransitLogicOutput"></div>
+<div id="dynamicTransitTableBox" class="output-box pastel-blue">
+  <p>Enter latitude/longitude above and click Start.</p>
+</div>
+<div class="rp-live-container">
+  <div class="rp-box pastel-peach" id="dynamicTransitCountdownBox"></div>
+</div>
+</div>
 
 <script src="js/xlsx.full.min.js"></script>
 <script src="js/astronomy.browser.min.js"></script>
@@ -153,6 +191,7 @@
 <script src="js/autoChart.js"></script>
 <script src="js/timezone.js"></script>
 <script src="js/liveRulingPlanets.js"></script>
+<script src="js/dynamicTransit.js"></script>
 <script src="js/ui.js"></script>
 </body>
 </html>
