@@ -89,6 +89,15 @@ function computePlanetLongitudes(date) {
   return result;
 }
 
+// Sidereal longitude of a single body — cheaper than computePlanetLongitudes()
+// when only one body is needed repeatedly (e.g. a stepping search over time).
+function computeSingleLongitude(bodyName, date) {
+  const ayanamsa = lahiriAyanamsaDegrees(date);
+  if (bodyName === 'Rahu') return normalizeDegrees(trueLunarNodeLongitude(date) - ayanamsa);
+  if (bodyName === 'Ketu') return normalizeDegrees(trueLunarNodeLongitude(date) - ayanamsa + 180);
+  return normalizeDegrees(tropicalLongitude(bodyName, date) - ayanamsa);
+}
+
 // Computes local sunrise (as a JS Date, UTC-based) for a given calendar date
 // and location. Falls back to null if the sun doesn't rise that day (polar).
 function computeSunrise(date, latitude, longitude) {
@@ -100,7 +109,7 @@ function computeSunrise(date, latitude, longitude) {
 
 if (typeof module !== 'undefined') {
   module.exports = {
-    EPHEMERIS_LOGIC_TEXT, computePlanetLongitudes, computeSunrise,
+    EPHEMERIS_LOGIC_TEXT, computePlanetLongitudes, computeSingleLongitude, computeSunrise,
     lahiriAyanamsaDegrees, normalizeDegrees
   };
 }

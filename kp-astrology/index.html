@@ -18,6 +18,13 @@
   .cell-updated { background-color: #ccf5cc !important; }
   .birth-input-pending { background-color: #ffd6d6; }
   .birth-input-submitted { background-color: #ffc266; }
+  .rp-live-container { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .rp-box { border: 2px solid #888; border-radius: 8px; padding: 12px 16px; background: #f9f9f9; min-width: 280px; flex: 1 1 320px; }
+  .rp-box h3 { margin-top: 0; }
+  .countdown-list { list-style: none; padding: 0; margin: 0; }
+  .countdown-list li { padding: 8px 0; border-bottom: 1px solid #ddd; }
+  .countdown-list li:last-child { border-bottom: none; }
+  .countdown { font-family: monospace; font-size: 1.1em; font-weight: bold; color: #a04000; }
 </style>
 </head>
 <body>
@@ -97,6 +104,19 @@
 <p><em>Click a Mahadasha row to see Antardashas; click an Antardasha row to see Pratyantardashas.</em></p>
 <div id="dashaOutput"></div>
 
+<h2>Live Ruling Planets (Astrologer's Location)</h2>
+<p>For a horary/prashna consultation: enter where the astrologer is sitting right now, and the Ruling Planets for this exact moment are computed continuously — Ascendant and Moon sign/star/sub/sub-sub lord, and day lord — entirely offline. The side box shows a live countdown to each upcoming change.</p>
+<fieldset>
+  <label>Astrologer Latitude: <input type="text" id="astroLat" placeholder="e.g. 28.6139"></label>
+  <label>Astrologer Longitude: <input type="text" id="astroLon" placeholder="e.g. 77.2090"></label><br><br>
+  <button id="startLiveRpBtn">Start Live Ruling Planets Display</button>
+</fieldset>
+<div id="liveRpLogicOutput"></div>
+<div class="rp-live-container">
+  <div class="rp-box" id="liveRpBox"><p>Enter latitude/longitude above and click Start.</p></div>
+  <div class="rp-box" id="upcomingChangesBox"></div>
+</div>
+
 <h2>Life Topic Promise Analysis</h2>
 <p>Marriage, education, wealth, job, and house/property — significator-connection logic, per topic.</p>
 <div class="controls">
@@ -118,6 +138,7 @@
 <script src="js/kpSubLords.js"></script>
 <script src="js/autoChart.js"></script>
 <script src="js/timezone.js"></script>
+<script src="js/liveRulingPlanets.js"></script>
 <script src="js/ui.js"></script>
 </body>
 </html>

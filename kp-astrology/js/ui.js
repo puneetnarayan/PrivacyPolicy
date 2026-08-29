@@ -31,6 +31,7 @@ function init() {
   el('computeEphemerisBtn').addEventListener('click', computeEphemerisLongitudes);
   el('computeTransitBtn').addEventListener('click', computeTransitSnapshot);
   el('generateChartBtn').addEventListener('click', generateFullChart);
+  el('startLiveRpBtn').addEventListener('click', startLiveRulingPlanets);
   el('timezoneMode').addEventListener('change', toggleTimezoneModeInputs);
   populateIanaZoneOptions();
   toggleTimezoneModeInputs();
@@ -639,6 +640,81 @@ function exportLifeTopicsReport() {
   const wb = buildLifeTopicsWorkbook(lastResults.lifeTopics);
   XLSX.writeFile(wb, 'kp-life-topics-report.xlsx');
   el('statusMsg').textContent = 'Exported kp-life-topics-report.xlsx';
+}
+
+// --- Live Ruling Planets (astrologer's location) ---
+let liveRpTimer = null;
+let liveRpLat = null;
+let liveRpLon = null;
+let liveRpUpcoming = [];
+
+function startLiveRulingPlanets() {
+  liveRpLat = parseFloat(el('astroLat').value);
+  liveRpLon = parseFloat(el('astroLon').value);
+  if (isNaN(liveRpLat) || isNaN(liveRpLon)) {
+    el('statusMsg').textContent = 'Enter the astrologer\'s latitude and longitude first.';
+    return;
+  }
+  if (liveRpTimer) clearInterval(liveRpTimer);
+  el('liveRpLogicOutput').innerHTML = renderLogicDetails(LIVE_RP_LOGIC_TEXT);
+  refreshLiveRulingPlanets();
+  liveRpTimer = setInterval(tickLiveRulingPlanets, 1000);
+  el('statusMsg').textContent = 'Live Ruling Planets display started.';
+}
+
+function refreshLiveRulingPlanets() {
+  const now = new Date();
+  const live = computeLiveRulingPlanets(now, liveRpLat, liveRpLon);
+  liveRpUpcoming = getUpcomingChanges(now, liveRpLat, liveRpLon);
+  renderLiveRulingPlanetsBox(live, now);
+  renderUpcomingChangesBox(liveRpUpcoming);
+}
+
+function tickLiveRulingPlanets() {
+  const now = new Date();
+  if (liveRpUpcoming.length && liveRpUpcoming[0].changeAt.getTime() <= now.getTime()) {
+    refreshLiveRulingPlanets();
+    return;
+  }
+  updateLiveRpClockAndCountdowns(now);
+}
+
+const LEVEL_LABEL = { subSub: 'Sub-Sub Lord', sub: 'Sub Lord', star: 'Star Lord (Nakshatra)', sign: 'Sign' };
+
+function renderLiveRulingPlanetsBox(live, now) {
+  el('liveRpBox').innerHTML = `
+    <h3>Live Ruling Planets</h3>
+    <p id="liveRpClock" style="font-size:0.8em;color:#666;"></p>
+    <p><strong>Day Lord:</strong> ${live.dayLord}</p>
+    <p><strong>Ascendant:</strong> ${live.ascendant.sign} (${live.ascendant.nakshatra})<br>Star: ${live.ascendant.starLord} · Sub: ${live.ascendant.subLord} · Sub-Sub: ${live.ascendant.subSubLord}</p>
+    <p><strong>Moon:</strong> ${live.moon.sign} (${live.moon.nakshatra})<br>Star: ${live.moon.starLord} · Sub: ${live.moon.subLord} · Sub-Sub: ${live.moon.subSubLord}</p>
+    <p><strong>All Ruling Planets:</strong> ${live.allRulingPlanets.join(', ')}</p>
+  `;
+}
+
+function renderUpcomingChangesBox(upcoming) {
+  let html = '<h3>Upcoming Changes</h3><ul class="countdown-list">';
+  upcoming.forEach((u, i) => {
+    const fromLabel = u.fromKey.split('|').pop();
+    const toLabel = u.toKey.split('|').pop();
+    html += `<li><strong>${u.body} — ${LEVEL_LABEL[u.level]}</strong><br>${fromLabel} &rarr; ${toLabel} at ${u.changeAt.toLocaleTimeString()}<br><span class="countdown" data-target="${u.changeAt.getTime()}">--:--:--</span></li>`;
+  });
+  html += '</ul>';
+  el('upcomingChangesBox').innerHTML = html || '<h3>Upcoming Changes</h3><p>None found in the search window.</p>';
+  updateLiveRpClockAndCountdowns(new Date());
+}
+
+function updateLiveRpClockAndCountdowns(now) {
+  const clock = el('liveRpClock');
+  if (clock) clock.textContent = now.toLocaleString();
+  document.querySelectorAll('#upcomingChangesBox .countdown').forEach(countdownEl => {
+    const target = Number(countdownEl.dataset.target);
+    let diff = Math.max(0, Math.round((target - now.getTime()) / 1000));
+    const h = Math.floor(diff / 3600); diff -= h * 3600;
+    const m = Math.floor(diff / 60); diff -= m * 60;
+    const s = diff;
+    countdownEl.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  });
 }
 
 document.addEventListener('DOMContentLoaded', init);

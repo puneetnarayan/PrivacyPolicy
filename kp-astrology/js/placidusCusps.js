@@ -96,6 +96,20 @@ function computePlacidusCuspsSidereal(date, latitude, longitude) {
   return sidereal;
 }
 
+// Ascendant only, sidereal — cheap (no iterative cusps), for repeated calls
+// such as a live display or a stepping search over time.
+function computeAscendantSidereal(date, latitude, longitude) {
+  const gastHours = Astronomy.SiderealTime(date);
+  const armc = normalizeDegrees((gastHours + longitude / 15) * 15);
+  const eps = Astronomy.e_tilt(date).tobl;
+  const ascTropical = computeAscendant(armc, eps, latitude);
+  const ayanamsa = lahiriAyanamsaDegrees(date);
+  return normalizeDegrees(ascTropical - ayanamsa);
+}
+
 if (typeof module !== 'undefined') {
-  module.exports = { PLACIDUS_LOGIC_TEXT, computePlacidusCuspsTropical, computePlacidusCuspsSidereal };
+  module.exports = {
+    PLACIDUS_LOGIC_TEXT, computePlacidusCuspsTropical, computePlacidusCuspsSidereal,
+    computeAscendantSidereal
+  };
 }
