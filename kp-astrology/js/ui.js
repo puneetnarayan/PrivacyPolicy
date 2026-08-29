@@ -35,6 +35,7 @@ function init() {
   el('startDynamicTransitBtn').addEventListener('click', startDynamicTransitTable);
   initRectifyTab();
   initEventTimingTab();
+  initChartsTab();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -635,6 +636,8 @@ function runComputations() {
     const lifeTopics = analyzeAllLifeTopics(significators, runningLords);
     lastResults.lifeTopics = lifeTopics;
     renderLifeTopics(lifeTopics);
+
+    renderAllVedicCharts();
 
     el('statusMsg').textContent = 'Computation complete.';
   } catch (err) {
@@ -1318,6 +1321,83 @@ function renderEventTimingDetail(result) {
   html += '<p><strong>Positive Factors:</strong></p><ul>' + result.positiveFactors.map(f => `<li>${f}</li>`).join('') + '</ul>';
   html += '<p><strong>Conflicting Factors:</strong></p><ul>' + (result.negativeFactors.length ? result.negativeFactors.map(f => `<li>${f}</li>`).join('') : '<li>None</li>') + '</ul>';
   el('eventTimingDetailBox').innerHTML = html;
+}
+
+// --- D1 / D9 / KP Charts ---
+function initChartsTab() {
+  el('vedicChartsLogicOutput').innerHTML = renderLogicDetails(VEDIC_CHARTS_LOGIC_TEXT);
+  el('refreshChartsBtn').addEventListener('click', renderAllVedicCharts);
+  document.querySelectorAll('input[name="chartStyle"]').forEach(r => r.addEventListener('change', renderAllVedicCharts));
+}
+
+function renderAllVedicCharts() {
+  const planets = state.planets.filter(p => p.name);
+  const cusps = state.cusps.filter(c => c.house);
+  if (!planets.length || !cusps.length) {
+    const msg = '<p>Load/generate a chart in the Chart & Analysis tab first.</p>';
+    el('d1ChartBox').innerHTML = msg; el('d9ChartBox').innerHTML = msg; el('kpChartBox').innerHTML = msg;
+    return;
+  }
+  const style = document.querySelector('input[name="chartStyle"]:checked').value;
+
+  if (style === 'south') {
+    el('d1ChartBox').innerHTML = renderSouthIndianSimple(buildD1ChartData(planets));
+    const d9 = buildD9ChartData(planets);
+    el('d9ChartBox').innerHTML = renderSouthIndianSimple(d9.bySign) +
+      (d9.skipped.length ? `<p style="font-size:0.75em;color:#a04000;">No longitude, omitted: ${d9.skipped.join(', ')}</p>` : '');
+    el('kpChartBox').innerHTML = renderSouthIndianKp(buildKpChartData(planets, cusps));
+  } else {
+    el('d1ChartBox').innerHTML = renderNorthIndianSvg(buildD1NorthIndian(planets, cusps), 'whole-sign');
+    const d9 = buildD9NorthIndian(planets, cusps);
+    el('d9ChartBox').innerHTML = renderNorthIndianSvg(d9.byHouse, 'whole-sign') +
+      (d9.skipped.length ? `<p style="font-size:0.75em;color:#a04000;">No longitude, omitted: ${d9.skipped.join(', ')}</p>` : '');
+    el('kpChartBox').innerHTML = renderNorthIndianSvg(buildKpNorthIndian(planets, cusps), 'kp');
+  }
+}
+
+function renderSouthIndianSimple(bySign) {
+  let html = '<div class="vedic-chart-grid">';
+  SOUTH_INDIAN_GRID.forEach(sign => {
+    if (!sign) { html += '<div class="vedic-chart-cell"></div>'; return; }
+    const planetsHere = bySign[sign] || [];
+    html += `<div class="vedic-chart-cell"><span class="sign-name">${sign.slice(0, 3)}</span>${planetsHere.join(', ')}</div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderSouthIndianKp(bySignKp) {
+  let html = '<div class="vedic-chart-grid">';
+  SOUTH_INDIAN_GRID.forEach(sign => {
+    if (!sign) { html += '<div class="vedic-chart-cell"></div>'; return; }
+    const data = bySignKp[sign] || { planets: [], houses: [] };
+    const houseBadges = data.houses.map(h => `H${h.house}`).join(' ');
+    const lordText = data.houses.map(h => `H${h.house}:${h.starLord || '?'}/${h.subLord || '?'}`).join('; ');
+    html += `<div class="vedic-chart-cell"><span class="sign-name">${sign.slice(0, 3)} <span class="house-badge">${houseBadges}</span></span>${data.planets.join(', ')}<span class="lord-info">${lordText}</span></div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderNorthIndianSvg(byHouse, mode) {
+  let svg = '<svg class="vedic-chart-svg" viewBox="0 0 300 300" width="320" height="320">';
+  NORTH_INDIAN_HOUSES.forEach(h => {
+    svg += `<polygon points="${h.points}" fill="#fff" stroke="#555" stroke-width="1.5" />`;
+    const data = byHouse[h.house];
+    let signLabel, extra = '';
+    if (mode === 'kp') {
+      signLabel = data.sign ? data.sign.slice(0, 3) : '?';
+      extra = `${data.starLord ? data.starLord.slice(0, 2) : '?'}/${data.subLord ? data.subLord.slice(0, 2) : '?'}`;
+    } else {
+      signLabel = SIGNS[data.signIndex].slice(0, 3);
+    }
+    const planetsText = data.planets.map(p => p.slice(0, 2)).join(' ');
+    svg += `<text x="${h.label[0]}" y="${h.label[1] - 8}" text-anchor="middle" font-weight="bold">H${h.house}:${signLabel}</text>`;
+    if (extra) svg += `<text x="${h.label[0]}" y="${h.label[1] + 3}" text-anchor="middle" font-size="9" fill="#666">${extra}</text>`;
+    svg += `<text x="${h.label[0]}" y="${h.label[1] + (extra ? 14 : 8)}" text-anchor="middle" fill="#a04000">${planetsText}</text>`;
+  });
+  svg += '</svg>';
+  return svg;
 }
 
 document.addEventListener('DOMContentLoaded', init);

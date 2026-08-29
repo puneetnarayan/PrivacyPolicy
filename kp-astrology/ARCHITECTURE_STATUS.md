@@ -5,6 +5,19 @@ clear what's real vs. deferred at any point.
 
 ## Done
 
+- **D1 / D9 / KP Charts** (`js/vedicCharts.js`, "Charts" tab): visual Rasi
+  (D1), Navamsa (D9), and KP charts, each selectable in South Indian
+  (fixed sign grid) or North Indian (diamond, fixed house positions, SVG)
+  layout. Reuses the currently loaded chart (state.planets/state.cusps) —
+  the only new calculation is the classical Navamsa (D9) sign formula
+  (verified against all three sign-modality cases: movable/fixed/dual).
+  The North Indian polygon layout's 12 regions were verified
+  self-consistent (every consecutive house shares a polygon edge, closing
+  into a valid clockwise cycle) and cross-checked on a real chart: house 1
+  correctly lands on the natal Ascendant's sign, and the KP chart's real
+  Placidus cusp signs matched previously-verified output exactly. Not
+  visually compared against a second reference chart image, since this
+  environment has no way to do that — flagged as a caveat in-app.
 - **Event Timing & Fructification Engine** (`js/eventRules.js`,
   `js/eventTimingEngine.js`, "Event Timing" tab): searches a configurable
   future horizon (1-20 years or custom) for when a promised event is likely
