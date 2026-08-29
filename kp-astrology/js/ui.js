@@ -1151,7 +1151,7 @@ let eventTimingMonths = [];
 let eventTimingNatal = null;
 
 function initEventTimingTab() {
-  el('eventTimingLogicOutput').innerHTML = renderLogicDetails(EVENT_TIMING_LOGIC_TEXT);
+  el('eventTimingLogicOutput').innerHTML = renderLogicDetails(EVENT_TIMING_LOGIC_TEXT) + renderLogicDetails(MARRIAGE_LONGEVITY_LOGIC_TEXT);
 
   const byCategory = {};
   Object.keys(EVENT_RULES).forEach(key => {
@@ -1202,6 +1202,7 @@ function runEventTimingSearch() {
 
   const promise = scorePromise(EVENT_RULES[eventKey], eventTimingNatal.significators, EVENT_TIMING_WEIGHTS);
   renderEventTimingPromise(eventKey, promise);
+  renderEventTimingLongevity(eventKey);
 
   eventTimingMonths = searchMonths(eventKey, eventTimingNatal, startDate, endDate);
   renderEventTimingYears(eventKey, eventTimingMonths);
@@ -1226,6 +1227,26 @@ function renderEventTimingPromise(eventKey, promise) {
     <p><strong>${promise.promised ? 'YES — promise found' : 'NOT clearly promised'}</strong> (required houses: ${eventDef.requiredHouses.join(', ')})</p>
     <p>${promise.bestPlanet ? `Best connecting planet: <strong>${promise.bestPlanet}</strong>, signifying houses ${promise.housesConnected.join(', ')} of ${eventDef.requiredHouses.length}.` : 'No single planet connects the required houses.'}</p>
     <p style="font-size:0.85em;color:#666;">Timing below is only meaningful once promise is established — see the Life Topic Promise Analysis tab for a fuller promise check.</p>
+  `;
+}
+
+// Only meaningful for marriage-related events — shown/hidden accordingly.
+const MARRIAGE_LONGEVITY_EVENT_KEYS = ['marriage', 'separation_divorce'];
+
+function renderEventTimingLongevity(eventKey) {
+  const box = el('eventTimingLongevityBox');
+  if (!MARRIAGE_LONGEVITY_EVENT_KEYS.includes(eventKey)) {
+    box.hidden = true;
+    box.innerHTML = '';
+    return;
+  }
+  const result = scoreMarriageLongevity(eventTimingNatal.planets, eventTimingNatal.cusps, eventTimingNatal.significators);
+  box.hidden = false;
+  box.innerHTML = `
+    <h3>Marriage Longevity Score (natal, not date-dependent)</h3>
+    <p><strong>${result.score} / 100 — ${result.classification}</strong></p>
+    <ul>${result.factors.map(f => `<li style="color:${f.positive ? '#2e7d32' : '#b71c1c'};">${f.text}</li>`).join('')}</ul>
+    <p style="font-size:0.85em;color:#666;">This is a structural read of the 7th-cusp sub-lord chain (2/7/11 vs 6/10/12), not a timing prediction. A low score means watch for it during dasha periods that activate the same 6/10/12 lords — check "Separation / Divorce" in the Event Timing search above for when those periods actually fall.</p>
   `;
 }
 

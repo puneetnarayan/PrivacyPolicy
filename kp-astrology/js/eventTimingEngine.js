@@ -169,6 +169,91 @@ function scoreTransit(eventDef, natalCusps, significators, transitDate, weights)
   };
 }
 
+// --- Section: Marriage Longevity (natal-only, not date-dependent) ---
+// Answers a different question from Event Promise/DBA/Transit above: not
+// "will marriage happen and when" but "if it happens, does the underlying
+// 7th-house wiring lean toward stability (2/7/11) or disruption (6/10/12)".
+// Reuses ONLY significators.js output already built for the natal chart —
+// no new astronomical calculation, no date/transit involved.
+const MARRIAGE_LONGEVITY_LOGIC_TEXT = [
+  ['Marriage Longevity Score — Logic and Sequence'],
+  [''],
+  ['This is a NATAL, one-time score — unlike the timing search above, it does not depend on a candidate date. It answers "if marriage happens, is the underlying significator wiring stable or vulnerable", not "will marriage happen" or "when".'],
+  [''],
+  ['1. 7th Cusp Sub Lord (±40 pts): does the 7th house cusp\'s sub lord signify houses 2/7/11 (marriage/relationship houses) more than 6/10/12 (separation/divorce houses)? Signifying only 2/7/11 scores full positive; signifying only 6/10/12 scores full negative; a mix is scored proportionally.'],
+  ['2. 7th Cusp Sub-Sub Lord (±20 pts): the same 2/7/11 vs 6/10/12 check one level deeper, as a finer tiebreaker.'],
+  ['3. 2nd/7th/11th Lords\' Cross-Affliction (±20 pts): do the sign lords of houses 2, 7, and 11 themselves signify 6, 10, or 12? Each such cross-link reduces this component.'],
+  ['4. Rahu-Ketu Axis on 1/7 (±10 pts): if Rahu or Ketu occupies or owns house 1 or 7, this is flagged as an instability factor (the Rahu-Ketu axis on the marriage axis is a classical separation indicator).'],
+  ['5. Malefic Association with 7th Cusp Star Lord (±10 pts): if the 7th cusp\'s star lord is itself a natural malefic (Saturn, Mars, Rahu, Ketu), this is flagged as an affliction factor.'],
+  [''],
+  ['Components are summed and normalized to 0-100. Bands: 75-100 "Strong, stable"; 50-74 "Stable with strain"; 25-49 "Vulnerable"; 0-24 "High separation potential".'],
+  [''],
+  ['Caveat: this is one reasonable, explicitly documented rule set for weighing 2/7/11 vs 6/10/12 significator conflicts around the 7th cusp — not a settled classical formula, and KP practitioners may weigh these factors differently. A low score does not itself predict divorce; read it alongside the Event Timing search for "Separation / Divorce" to see whether any dasha period in the chart actually activates the same 6/10/12 lords.']
+];
+
+const MARRIAGE_LONGEVITY_HOUSES = { stable: [2, 7, 11], unstable: [6, 10, 12] };
+const NATURAL_MALEFICS = ['Saturn', 'Mars', 'Rahu', 'Ketu'];
+
+const MARRIAGE_LONGEVITY_BANDS = [
+  { min: 75, max: 100, label: 'Strong, stable' },
+  { min: 50, max: 74, label: 'Stable with strain' },
+  { min: 25, max: 49, label: 'Vulnerable' },
+  { min: 0, max: 24, label: 'High separation potential' }
+];
+function classifyLongevity(score) {
+  const band = MARRIAGE_LONGEVITY_BANDS.find(b => score >= b.min && score <= b.max);
+  return band ? band.label : 'Unclassified';
+}
+
+// +1 if lord signifies only stable houses, -1 if only unstable, proportional mix otherwise, 0 if neither.
+function stableVsUnstableFraction(lord, significators) {
+  if (!lord) return 0;
+  const stableHits = MARRIAGE_LONGEVITY_HOUSES.stable.filter(h => significators[h] && significators[h].allSignificators.includes(lord)).length;
+  const unstableHits = MARRIAGE_LONGEVITY_HOUSES.unstable.filter(h => significators[h] && significators[h].allSignificators.includes(lord)).length;
+  const total = stableHits + unstableHits;
+  if (total === 0) return 0;
+  return (stableHits - unstableHits) / total;
+}
+
+function scoreMarriageLongevity(planets, cusps, significators) {
+  const cusp7 = cusps.find(c => Number(c.house) === 7);
+  const factors = [];
+
+  const subLordFraction = cusp7 ? stableVsUnstableFraction(cusp7.subLord, significators) : 0;
+  const subLordPts = Math.round(40 * subLordFraction);
+  if (cusp7 && cusp7.subLord) factors.push({ text: `7th cusp sub lord ${cusp7.subLord}: ${subLordFraction >= 0 ? 'leans' : 'leans away from'} 2/7/11 (net ${subLordPts >= 0 ? '+' : ''}${subLordPts}).`, positive: subLordPts >= 0 });
+
+  const subSubLordFraction = cusp7 ? stableVsUnstableFraction(cusp7.subSubLord, significators) : 0;
+  const subSubLordPts = Math.round(20 * subSubLordFraction);
+  if (cusp7 && cusp7.subSubLord) factors.push({ text: `7th cusp sub-sub lord ${cusp7.subSubLord}: net ${subSubLordPts >= 0 ? '+' : ''}${subSubLordPts}.`, positive: subSubLordPts >= 0 });
+
+  const crossLords = MARRIAGE_LONGEVITY_HOUSES.stable
+    .map(h => cusps.find(c => Number(c.house) === h))
+    .filter(Boolean)
+    .map(c => SIGN_LORD[c.sign])
+    .filter(Boolean);
+  const crossFractions = crossLords.map(lord => stableVsUnstableFraction(lord, significators));
+  const crossAvg = crossFractions.length ? crossFractions.reduce((a, b) => a + b, 0) / crossFractions.length : 0;
+  const crossPts = Math.round(20 * crossAvg);
+  if (crossLords.length) factors.push({ text: `2nd/7th/11th lords (${crossLords.join(', ')}) cross-affliction check: net ${crossPts >= 0 ? '+' : ''}${crossPts}.`, positive: crossPts >= 0 });
+
+  const axisHouses = [1, 7];
+  const axisAfflicted = ['Rahu', 'Ketu'].some(node =>
+    axisHouses.some(h => significators[h] && significators[h].allSignificators.includes(node) &&
+      (planets.find(p => p.name === node && Number(p.house) === h) || SIGN_LORD[(cusps.find(c => Number(c.house) === h) || {}).sign] === node)));
+  const axisPts = axisAfflicted ? -10 : 10;
+  factors.push({ text: axisAfflicted ? 'Rahu-Ketu axis touches the 1st/7th (instability indicator).' : 'Rahu-Ketu axis does not touch the 1st/7th.', positive: !axisAfflicted });
+
+  const maleficStarLord = cusp7 && NATURAL_MALEFICS.includes(cusp7.starLord);
+  const maleficPts = maleficStarLord ? -10 : 10;
+  if (cusp7) factors.push({ text: maleficStarLord ? `7th cusp star lord ${cusp7.starLord} is a natural malefic (affliction).` : `7th cusp star lord ${cusp7 ? cusp7.starLord : '?'} is not a natural malefic.`, positive: !maleficStarLord });
+
+  const raw = subLordPts + subSubLordPts + crossPts + axisPts + maleficPts;
+  const score = Math.max(0, Math.min(100, Math.round(50 + raw / 2)));
+
+  return { score, classification: classifyLongevity(score), factors, cusp7SubLord: cusp7 ? cusp7.subLord : null, cusp7SubSubLord: cusp7 ? cusp7.subSubLord : null };
+}
+
 // --- Section: Combined Scoring (one candidate date/time) ---
 // natal: { planets, cusps, significators, dashaResult } — built once per search, reused across all candidates.
 function scoreCandidate(eventKey, natal, date, weights, thresholds, convergence) {
@@ -303,6 +388,7 @@ if (typeof module !== 'undefined') {
   module.exports = {
     EVENT_TIMING_LOGIC_TEXT, EVENT_TIMING_WEIGHTS, EVENT_TIMING_THRESHOLDS, EVENT_TIMING_CONVERGENCE, classify,
     scorePromise, scoreDba, scoreTransit, scoreCandidate, buildNatalContext,
-    searchMonths, searchDays, searchHours, detectWindows
+    searchMonths, searchDays, searchHours, detectWindows,
+    MARRIAGE_LONGEVITY_LOGIC_TEXT, scoreMarriageLongevity, classifyLongevity
   };
 }
