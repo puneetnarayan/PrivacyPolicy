@@ -96,10 +96,41 @@ function isKnownSignName(value) {
   return !!SIGN_LOOKUP[normalizeKey(value)];
 }
 
+// Splits a 0-360° longitude into { sign, degree, minute, second } — degree is
+// the whole-degree position WITHIN the sign (0-29), matching the standard
+// Vedic/KP notation "12°34'56" Leo", not the raw 0-360 value. Handles the
+// 59.5999...->60 rounding edge case by rolling over into the next minute/
+// degree/sign rather than ever printing ":60".
+function longitudeToDegMinSec(longitude) {
+  const lon = ((Number(longitude) % 360) + 360) % 360;
+  let signIndex = Math.floor(lon / 30);
+  let degInSign = lon - signIndex * 30;
+
+  let degree = Math.floor(degInSign);
+  let minuteFloat = (degInSign - degree) * 60;
+  let minute = Math.floor(minuteFloat);
+  let second = Math.round((minuteFloat - minute) * 60);
+
+  if (second === 60) { second = 0; minute += 1; }
+  if (minute === 60) { minute = 0; degree += 1; }
+  if (degree === 30) { degree = 0; signIndex = (signIndex + 1) % 12; }
+
+  return { sign: SIGNS[signIndex], degree, minute, second };
+}
+
+// "12°34'56" Leo" — the standard display format for a zodiacal position.
+function formatDegMinSec(longitude) {
+  if (longitude === undefined || longitude === null || longitude === '' || isNaN(Number(longitude))) return '';
+  const { sign, degree, minute, second } = longitudeToDegMinSec(longitude);
+  const pad = n => String(n).padStart(2, '0');
+  return `${degree}°${pad(minute)}'${pad(second)}" ${sign.slice(0, 3)}`;
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     VIMSHOTTARI_SEQUENCE, VIMSHOTTARI_YEARS, VIMSHOTTARI_TOTAL_YEARS,
     NAKSHATRAS, NAKSHATRA_TABLE, SIGNS, SIGN_LORD, PLANET_NAMES,
+    longitudeToDegMinSec, formatDegMinSec,
     nakshatraFromLongitude, WEEKDAY_LORD,
     canonicalPlanetName, canonicalSignName, canonicalNakshatraName,
     isKnownPlanetName, isKnownSignName

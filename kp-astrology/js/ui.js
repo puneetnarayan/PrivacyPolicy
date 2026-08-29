@@ -53,6 +53,7 @@ function init() {
   ['birthDateTime', 'moonLongitude'].forEach(id => {
     el(id).addEventListener('input', () => el(id).classList.remove('cell-updated'));
   });
+  el('moonLongitude').addEventListener('input', updateMoonLongitudeDms);
 
   startLiveRulingPlanets();
   startDynamicTransitTable();
@@ -218,6 +219,11 @@ function startUpdateDownload(popup, manifest, close) {
     });
 }
 
+function updateMoonLongitudeDms() {
+  const val = parseFloat(el('moonLongitude').value);
+  el('moonLongitudeDms').textContent = isNaN(val) ? '' : formatDegMinSec(val);
+}
+
 function switchTab(tabId) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === tabId));
   document.querySelectorAll('.tab-button').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
@@ -283,13 +289,13 @@ function generateFullChart() {
   const chart = generateChart(birthUtc, lat, lon);
 
   state.planets = chart.planets.map(p => ({ ...p, longitude: String(p.longitude) }));
-  state.cusps = chart.cusps.map(c => ({ house: c.house, sign: c.sign, nakshatra: c.nakshatra, pada: c.pada, starLord: c.starLord, subLord: c.subLord, subSubLord: c.subSubLord }));
+  state.cusps = chart.cusps.map(c => ({ house: c.house, sign: c.sign, nakshatra: c.nakshatra, pada: c.pada, starLord: c.starLord, subLord: c.subLord, subSubLord: c.subSubLord, longitude: String(c.longitude) }));
 
   const planetCols = ['name', 'sign', 'nakshatra', 'pada', 'house', 'starLord', 'subLord', 'subSubLord', 'retrograde', 'longitude'];
   state.updatedPlanetCells = new Set();
   state.planets.forEach((p, i) => planetCols.forEach(c => state.updatedPlanetCells.add(i + ':' + c)));
 
-  const cuspCols = ['house', 'sign', 'nakshatra', 'pada', 'starLord', 'subLord', 'subSubLord'];
+  const cuspCols = ['house', 'sign', 'nakshatra', 'pada', 'starLord', 'subLord', 'subSubLord', 'longitude'];
   state.updatedCuspCells = new Set();
   state.cusps.forEach((c, i) => cuspCols.forEach(col => state.updatedCuspCells.add(i + ':' + col)));
 
@@ -299,6 +305,7 @@ function generateFullChart() {
   const pad = n => String(n).padStart(2, '0');
   el('birthDateTime').value = `${birthUtc.getUTCFullYear()}-${pad(birthUtc.getUTCMonth() + 1)}-${pad(birthUtc.getUTCDate())}T${pad(birthUtc.getUTCHours())}:${pad(birthUtc.getUTCMinutes())}`;
   el('moonLongitude').value = chart.moonLongitude.toFixed(4);
+  updateMoonLongitudeDms();
   el('birthDateTime').classList.add('cell-updated');
   el('moonLongitude').classList.add('cell-updated');
 
@@ -356,12 +363,12 @@ function computeTransitSnapshot() {
 
   let html = renderLogicDetails(EPHEMERIS_LOGIC_TEXT);
   html += `<p><strong>Snapshot for:</strong> ${moment.toISOString()}</p>`;
-  html += '<table><thead><tr><th>Planet</th><th>Longitude</th><th>Sign</th><th>Aspected Houses (whole-sign)</th></tr></thead><tbody>';
+  html += '<table><thead><tr><th>Planet</th><th>Longitude</th><th>Position (DMS)</th><th>Sign</th><th>Aspected Houses (whole-sign)</th></tr></thead><tbody>';
   Object.keys(longitudes).forEach(name => {
     const lon = longitudes[name];
     const sign = SIGNS[Math.floor(lon / 30)];
     const aspect = aspects.find(a => a.planet === name);
-    html += `<tr><td>${name}</td><td>${lon.toFixed(2)}°</td><td>${sign}</td><td>${aspect ? aspect.aspectedHouses.join(', ') : '(no cusps loaded)'}</td></tr>`;
+    html += `<tr><td>${name}</td><td>${lon.toFixed(2)}°</td><td>${formatDegMinSec(lon)}</td><td>${sign}</td><td>${aspect ? aspect.aspectedHouses.join(', ') : '(no cusps loaded)'}</td></tr>`;
   });
   html += '</tbody></table>';
   el('transitOutput').innerHTML = html;
@@ -400,7 +407,7 @@ function blankPlanet(name) {
   return { name: name || '', sign: '', nakshatra: '', pada: '', house: '', starLord: '', subLord: '', subSubLord: '', retrograde: false, longitude: '' };
 }
 function blankCusp(house) {
-  return { house, sign: '', nakshatra: '', pada: '', starLord: '', subLord: '', subSubLord: '' };
+  return { house, sign: '', nakshatra: '', pada: '', starLord: '', subLord: '', subSubLord: '', longitude: '' };
 }
 
 function loadSampleData() {
@@ -428,7 +435,7 @@ function handleUpload(e) {
       }
       if (data.planets) state.planets = data.planets;
       if (data.cusps) state.cusps = data.cusps;
-      if (data.moon) { el('moonLongitude').value = data.moon.longitude ?? ''; }
+      if (data.moon) { el('moonLongitude').value = data.moon.longitude ?? ''; updateMoonLongitudeDms(); }
       if (data.birthDateTime) { el('birthDateTime').value = data.birthDateTime; }
 
       const warnings = [...canonicalizeRecords(state.planets), ...canonicalizeRecords(state.cusps)];
@@ -539,20 +546,31 @@ function renderPlanetTable() {
   attachTableListeners('planetTable', 'planets', cols);
 }
 function renderCuspTable() {
-  const cols = ['house', 'sign', 'nakshatra', 'pada', 'starLord', 'subLord', 'subSubLord'];
+  const cols = ['house', 'sign', 'nakshatra', 'pada', 'starLord', 'subLord', 'subSubLord', 'longitude'];
   el('cuspTable').innerHTML = renderEditableTable('cusps', state.cusps, cols, state.updatedCuspCells);
   attachTableListeners('cuspTable', 'cusps', cols);
 }
 
+// Columns whose editable numeric value also gets a read-only Degree-Min-Sec
+// column appended right after it (e.g. "longitude" -> "Position (DMS)").
+const DMS_DISPLAY_COLS = { longitude: 'Position (DMS)' };
+
 function renderEditableTable(kind, rows, cols, updatedCells) {
-  let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
+  const headerCells = cols.flatMap(c => DMS_DISPLAY_COLS[c] ? [c, DMS_DISPLAY_COLS[c]] : [c]);
+  let html = '<table><thead><tr>' + headerCells.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   rows.forEach((row, i) => {
     html += '<tr>' + cols.map(c => {
       const updatedClass = updatedCells && updatedCells.has(i + ':' + c) ? ' class="cell-updated"' : '';
+      let cell;
       if (c === 'retrograde') {
-        return `<td><input type="checkbox" data-row="${i}" data-col="${c}"${updatedClass} ${row[c] ? 'checked' : ''}></td>`;
+        cell = `<td><input type="checkbox" data-row="${i}" data-col="${c}"${updatedClass} ${row[c] ? 'checked' : ''}></td>`;
+      } else {
+        cell = `<td><input type="text" data-row="${i}" data-col="${c}"${updatedClass} value="${row[c] ?? ''}"></td>`;
       }
-      return `<td><input type="text" data-row="${i}" data-col="${c}"${updatedClass} value="${row[c] ?? ''}"></td>`;
+      if (DMS_DISPLAY_COLS[c]) {
+        cell += `<td class="dms-cell" data-dms-for="${i}:${c}">${formatDegMinSec(row[c])}</td>`;
+      }
+      return cell;
     }).join('') + '</tr>';
   });
   html += '</tbody></table>';
@@ -573,6 +591,10 @@ function attachTableListeners(tableId, kind, cols) {
       if (col !== 'house' && input.type !== 'checkbox') input.value = value;
       updatedCells.delete(row + ':' + col);
       input.classList.remove('cell-updated');
+      if (DMS_DISPLAY_COLS[col]) {
+        const dmsCell = el(tableId).querySelector(`[data-dms-for="${row}:${col}"]`);
+        if (dmsCell) dmsCell.textContent = formatDegMinSec(value);
+      }
     });
   });
 }
@@ -872,8 +894,8 @@ function renderLiveRulingPlanetsBox(live, now) {
     <h3>Live Ruling Planets</h3>
     <p id="liveRpClock" style="font-size:0.8em;color:#666;"></p>
     <p><strong>Day Lord:</strong> ${live.dayLord}</p>
-    <p><strong>Ascendant:</strong> ${live.ascendant.sign} (${live.ascendant.nakshatra})<br>Star: ${live.ascendant.starLord} · Sub: ${live.ascendant.subLord} · Sub-Sub: ${live.ascendant.subSubLord}</p>
-    <p><strong>Moon:</strong> ${live.moon.sign} (${live.moon.nakshatra})<br>Star: ${live.moon.starLord} · Sub: ${live.moon.subLord} · Sub-Sub: ${live.moon.subSubLord}</p>
+    <p><strong>Ascendant:</strong> ${formatDegMinSec(live.ascendantLongitude)} (${live.ascendant.nakshatra})<br>Star: ${live.ascendant.starLord} · Sub: ${live.ascendant.subLord} · Sub-Sub: ${live.ascendant.subSubLord}</p>
+    <p><strong>Moon:</strong> ${formatDegMinSec(live.moonLongitude)} (${live.moon.nakshatra})<br>Star: ${live.moon.starLord} · Sub: ${live.moon.subLord} · Sub-Sub: ${live.moon.subSubLord}</p>
     <p><strong>All Ruling Planets:</strong> ${live.allRulingPlanets.join(', ')}</p>
   `;
 }
@@ -941,9 +963,9 @@ function tickDynamicTransitTable() {
 
 function renderDynamicTransitTableBox(table, now) {
   let html = `<h3>Live Transit Table</h3><p id="dynTransitClock" style="font-size:0.8em;color:#666;"></p>`;
-  html += '<table><thead><tr><th>Planet</th><th>Sign</th><th>Nakshatra</th><th>Star Lord</th><th>Sub Lord</th><th>Sub-Sub Lord</th><th>House</th></tr></thead><tbody>';
+  html += '<table><thead><tr><th>Planet</th><th>Position (DMS)</th><th>Sign</th><th>Nakshatra</th><th>Star Lord</th><th>Sub Lord</th><th>Sub-Sub Lord</th><th>House</th></tr></thead><tbody>';
   table.forEach(p => {
-    html += `<tr><td>${p.name}</td><td>${p.sign}</td><td>${p.nakshatra}</td><td>${p.starLord}</td><td>${p.subLord}</td><td>${p.subSubLord}</td><td>${p.house}</td></tr>`;
+    html += `<tr><td>${p.name}</td><td>${formatDegMinSec(p.longitude)}</td><td>${p.sign}</td><td>${p.nakshatra}</td><td>${p.starLord}</td><td>${p.subLord}</td><td>${p.subSubLord}</td><td>${p.house}</td></tr>`;
   });
   html += '</tbody></table>';
   el('dynamicTransitTableBox').innerHTML = html;
