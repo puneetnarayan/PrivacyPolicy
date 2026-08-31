@@ -14,6 +14,37 @@ let state = {
 
 const BIRTH_INPUT_IDS = ['birthLocalDate', 'birthLocalTime', 'birthLat', 'birthLon'];
 
+// Persisted (localStorage) so the birth details you enter are still there
+// the next time you open the app, instead of resetting to blank — same
+// persistence pattern as settings.js. Includes the timezone choice so the
+// UTC conversion stays correct on reload too.
+const BIRTH_DETAILS_STORAGE_KEY = 'kpAstrologyDefaultBirthDetails';
+const BIRTH_DETAIL_PERSIST_IDS = ['birthLocalDate', 'birthLocalTime', 'birthLat', 'birthLon', 'timezoneMode', 'utcOffset', 'ianaZone'];
+
+function saveDefaultBirthDetails() {
+  try {
+    const details = {};
+    BIRTH_DETAIL_PERSIST_IDS.forEach(id => { details[id] = el(id).value; });
+    localStorage.setItem(BIRTH_DETAILS_STORAGE_KEY, JSON.stringify(details));
+  } catch (e) {
+    // localStorage unavailable (e.g. private browsing) — just won't persist this run.
+  }
+}
+
+function loadDefaultBirthDetails() {
+  try {
+    const raw = localStorage.getItem(BIRTH_DETAILS_STORAGE_KEY);
+    if (!raw) return;
+    const details = JSON.parse(raw);
+    BIRTH_DETAIL_PERSIST_IDS.forEach(id => {
+      if (details[id] !== undefined && details[id] !== '') el(id).value = details[id];
+    });
+    toggleTimezoneModeInputs();
+  } catch (e) {
+    // Corrupt/unavailable storage — leave fields as their normal blank defaults.
+  }
+}
+
 // Cached results from the last runComputations(), used by the Life Topics export.
 let lastResults = { significators: null, dasha: null };
 
@@ -44,12 +75,16 @@ function init() {
   populateIanaZoneOptions();
   toggleTimezoneModeInputs();
 
+  loadDefaultBirthDetails();
   BIRTH_INPUT_IDS.forEach(id => {
     el(id).classList.add('birth-input-pending');
     el(id).addEventListener('input', () => {
       el(id).classList.remove('birth-input-submitted');
       el(id).classList.add('birth-input-pending');
     });
+  });
+  BIRTH_DETAIL_PERSIST_IDS.forEach(id => {
+    el(id).addEventListener('change', saveDefaultBirthDetails);
   });
   ['birthDateTime', 'moonLongitude'].forEach(id => {
     el(id).addEventListener('input', () => el(id).classList.remove('cell-updated'));
