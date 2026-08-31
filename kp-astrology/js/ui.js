@@ -21,6 +21,17 @@ const BIRTH_INPUT_IDS = ['birthLocalDate', 'birthLocalTime', 'birthLat', 'birthL
 const BIRTH_DETAILS_STORAGE_KEY = 'kpAstrologyDefaultBirthDetails';
 const BIRTH_DETAIL_PERSIST_IDS = ['birthLocalDate', 'birthLocalTime', 'birthLat', 'birthLon', 'timezoneMode', 'utcOffset', 'ianaZone'];
 
+// Baked-in fallback default birth details (same values as
+// sample-birth-details.csv, kept in code so the app has a working default
+// on first run, before anything has ever been saved to localStorage).
+// localStorage — once you've entered your own details — always takes
+// priority over this; this only fills the fields on a first-ever run.
+const DEFAULT_BIRTH_DETAILS = {
+  birthLocalDate: '1990-06-15', birthLocalTime: '10:30',
+  birthLat: '15.170375', birthLon: '76.633721',
+  timezoneMode: 'offset', utcOffset: '+5:30', ianaZone: 'Asia/Kolkata'
+};
+
 function saveDefaultBirthDetails() {
   try {
     const details = {};
@@ -32,17 +43,20 @@ function saveDefaultBirthDetails() {
 }
 
 function loadDefaultBirthDetails() {
+  let saved = {};
   try {
     const raw = localStorage.getItem(BIRTH_DETAILS_STORAGE_KEY);
-    if (!raw) return;
-    const details = JSON.parse(raw);
-    BIRTH_DETAIL_PERSIST_IDS.forEach(id => {
-      if (details[id] !== undefined && details[id] !== '') el(id).value = details[id];
-    });
-    toggleTimezoneModeInputs();
+    if (raw) saved = JSON.parse(raw);
   } catch (e) {
-    // Corrupt/unavailable storage — leave fields as their normal blank defaults.
+    // Corrupt/unavailable storage — fall through to the baked-in defaults below.
   }
+  // Saved (localStorage) values win when present; the baked-in defaults
+  // (from sample-birth-details.csv) fill in anything never saved yet.
+  const details = { ...DEFAULT_BIRTH_DETAILS, ...saved };
+  BIRTH_DETAIL_PERSIST_IDS.forEach(id => {
+    if (details[id] !== undefined && details[id] !== '') el(id).value = details[id];
+  });
+  toggleTimezoneModeInputs();
 }
 
 // Cached results from the last runComputations(), used by the Life Topics export.
@@ -1454,8 +1468,9 @@ function initHoraryTab() {
   const now = new Date();
   el('horaryJudgmentDate').value = now.toISOString().slice(0, 10);
   el('horaryJudgmentTime').value = now.toISOString().slice(11, 16);
-  el('horaryLat').value = '15.170375';
-  el('horaryLon').value = '76.633721';
+  el('horaryLat').value = DEFAULT_BIRTH_DETAILS.birthLat;
+  el('horaryLon').value = DEFAULT_BIRTH_DETAILS.birthLon;
+  el('horaryUtcOffset').value = DEFAULT_BIRTH_DETAILS.utcOffset;
 
   el('horaryNumberInput').addEventListener('input', updateHoraryNumberPreview);
   updateHoraryNumberPreview();
