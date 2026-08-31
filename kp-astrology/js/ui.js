@@ -36,6 +36,7 @@ function init() {
   initRectifyTab();
   initEventTimingTab();
   initChartsTab();
+  initHoraryTab();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -1396,6 +1397,145 @@ function renderAllVedicCharts() {
       (d9.skipped.length ? `<p style="font-size:0.75em;color:#a04000;">No longitude, omitted: ${d9.skipped.join(', ')}</p>` : '');
     el('kpChartBox').innerHTML = renderNorthIndianSvg(buildKpNorthIndian(planets, cusps), 'kp');
   }
+}
+
+function initHoraryTab() {
+  el('horaryLogicOutput').innerHTML =
+    renderLogicDetails(HORARY_TABLE_LOGIC_TEXT) +
+    renderLogicDetails(HORARY_CHART_LOGIC_TEXT) +
+    renderLogicDetails(HORARY_ENGINE_LOGIC_TEXT);
+
+  const byCategory = {};
+  Object.keys(EVENT_RULES).forEach(key => {
+    const cat = EVENT_RULES[key].category;
+    (byCategory[cat] = byCategory[cat] || []).push(key);
+  });
+  el('horaryEventSelect').innerHTML = Object.keys(byCategory).map(cat =>
+    `<optgroup label="${cat}">` +
+    byCategory[cat].map(key => `<option value="${key}">${EVENT_RULES[key].label}</option>`).join('') +
+    '</optgroup>'
+  ).join('');
+
+  const now = new Date();
+  el('horaryJudgmentDate').value = now.toISOString().slice(0, 10);
+  el('horaryJudgmentTime').value = now.toISOString().slice(11, 16);
+  el('horaryLat').value = '15.170375';
+  el('horaryLon').value = '76.633721';
+
+  el('horaryNumberInput').addEventListener('input', updateHoraryNumberPreview);
+  updateHoraryNumberPreview();
+
+  el('horaryTimezoneMode').addEventListener('change', () => {
+    const mode = el('horaryTimezoneMode').value;
+    el('horaryIanaZoneLabel').hidden = mode !== 'iana';
+    el('horaryUtcOffsetLabel').hidden = mode !== 'offset';
+  });
+  const ianaSelect = el('horaryIanaZone');
+  try {
+    const zones = Intl.supportedValuesOf('timeZone');
+    ianaSelect.innerHTML = zones.map(z => `<option value="${z}">${z}</option>`).join('');
+    const guessed = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (guessed && zones.includes(guessed)) ianaSelect.value = guessed;
+  } catch (e) {
+    ianaSelect.innerHTML = '<option value="">(not supported — use UTC offset mode)</option>';
+  }
+
+  el('runHoraryBtn').addEventListener('click', runHoraryAnalysis);
+}
+
+function updateHoraryNumberPreview() {
+  const n = parseInt(el('horaryNumberInput').value, 10);
+  const info = horaryNumberInfo(n);
+  el('horaryNumberPreview').textContent = info
+    ? `${info.sign}, ${info.nakshatra} nakshatra, star lord ${info.starLord}, sub lord ${info.subLord}`
+    : `Out of the currently supported range (${HORARY_NUMBER_MIN}-${HORARY_NUMBER_MAX})`;
+}
+
+function runHoraryAnalysis() {
+  const horaryNumber = parseInt(el('horaryNumberInput').value, 10);
+  if (!horaryNumberInfo(horaryNumber)) {
+    el('statusMsg').textContent = `Horary number must be between ${HORARY_NUMBER_MIN} and ${HORARY_NUMBER_MAX} (see Horary Number Table logic notes).`;
+    return;
+  }
+  const eventKey = el('horaryEventSelect').value;
+  const dateStr = el('horaryJudgmentDate').value;
+  const timeStr = el('horaryJudgmentTime').value;
+  const lat = parseFloat(el('horaryLat').value);
+  const lon = parseFloat(el('horaryLon').value);
+  if (!dateStr || !timeStr || isNaN(lat) || isNaN(lon)) {
+    el('statusMsg').textContent = 'Enter judgment date, time, latitude, and longitude first.';
+    return;
+  }
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hour, minute] = timeStr.split(':').map(Number);
+
+  let judgmentUtc;
+  try {
+    if (el('horaryTimezoneMode').value === 'iana') {
+      const zone = el('horaryIanaZone').value;
+      if (!zone) { el('statusMsg').textContent = 'Select a time zone, or switch to UTC offset mode.'; return; }
+      judgmentUtc = zonedLocalToUtc(year, month, day, hour, minute, zone);
+    } else {
+      const offsetMinutes = parseUtcOffsetToMinutes(el('horaryUtcOffset').value);
+      judgmentUtc = offsetLocalToUtc(year, month, day, hour, minute, offsetMinutes);
+    }
+  } catch (err) {
+    el('statusMsg').textContent = 'Timezone error: ' + err.message;
+    return;
+  }
+
+  let result;
+  try {
+    result = analyzeHorary(horaryNumber, eventKey, judgmentUtc, lat, lon);
+  } catch (err) {
+    el('statusMsg').textContent = err.message;
+    return;
+  }
+
+  renderHoraryResult(result);
+  el('statusMsg').textContent = `Horary analysis complete for number ${horaryNumber} (${result.eventDef.label}).`;
+}
+
+function renderHoraryResult(result) {
+  const { horaryChart, eventDef, genuineness, promise, cuspStrength, conflicts } = result;
+
+  el('horaryGenuinenessBox').innerHTML = `
+    <h3>Query Genuineness</h3>
+    <p><strong>${genuineness.overallGenuine ? 'GENUINE — proceed with the reading' : 'NOT clearly genuine — Moon and/or Lagna sub lord do not reflect the query'}</strong></p>
+    <p>Moon ${genuineness.moonGenuine ? 'signifies' : 'does NOT signify'} required house(s)${genuineness.moonHouses.length ? ': ' + genuineness.moonHouses.join(', ') : ''}.</p>
+    <p>Lagna sub lord (${genuineness.lagnaSubLord || '?'}) ${genuineness.lagnaGenuine ? 'signifies' : 'does NOT signify'} required house(s)${genuineness.lagnaHouses.length ? ': ' + genuineness.lagnaHouses.join(', ') : ''}.</p>
+  `;
+
+  el('horaryPromiseBox').innerHTML = `
+    <h3>Event Promise: ${eventDef.label}</h3>
+    <p><strong>${promise.promised ? 'YES — promised' : 'NOT clearly promised'}</strong> (required houses: ${eventDef.requiredHouses.join(', ')}, topic cusp: ${promise.topicCuspHouse})</p>
+    <p>${promise.topicSubLord ? `Topic cusp (${promise.topicCuspHouse}) sub lord <strong>${promise.topicSubLord}</strong>${promise.housesConnected.length ? ` connects houses ${promise.housesConnected.join(', ')}.` : ' does not connect any required house.'}` : ''}</p>
+    ${(conflicts.topicSubLordOpposing.length || conflicts.lagnaSubLordOpposing.length) ? `<p style="color:#b71c1c;">Conflicting factor(s): ${[
+      conflicts.topicSubLordOpposing.length ? `topic sub lord also signifies opposing house(s) ${conflicts.topicSubLordOpposing.join(', ')}` : null,
+      conflicts.lagnaSubLordOpposing.length ? `Lagna sub lord also signifies opposing house(s) ${conflicts.lagnaSubLordOpposing.join(', ')}` : null
+    ].filter(Boolean).join('; ')}.</p>` : ''}
+  `;
+
+  el('horaryStrengthBox').innerHTML = `
+    <h3>Cuspal Strength (required houses, ranked)</h3>
+    <table><tr><th>House</th><th>Significator Count</th><th>Significators</th></tr>
+    ${cuspStrength.map(c => `<tr><td>${c.house}</td><td>${c.significatorCount}</td><td>${c.significators.join(', ')}</td></tr>`).join('')}
+    </table>
+  `;
+
+  el('horaryPlanetsBox').innerHTML = `
+    <h3>Horary Chart — Planets</h3>
+    <table><tr><th>Planet</th><th>Sign</th><th>Position (DMS)</th><th>House</th><th>Nakshatra</th><th>Pada</th><th>Star Lord</th><th>Sub Lord</th></tr>
+    ${horaryChart.planets.map(p => `<tr><td>${p.name}</td><td>${p.sign}</td><td>${formatDmsOnly(p.longitude)}</td><td>${p.house || ''}</td><td>${p.nakshatra}</td><td>${p.pada}</td><td>${p.starLord}</td><td>${p.subLord}</td></tr>`).join('')}
+    </table>
+  `;
+
+  el('horaryCuspsBox').innerHTML = `
+    <h3>Horary Chart — Cusps (Ascendant = Horary No. ${horaryChart.horaryNumber})</h3>
+    <table><tr><th>House</th><th>Sign</th><th>Position (DMS)</th><th>Star Lord</th><th>Sub Lord</th></tr>
+    ${horaryChart.cusps.map(c => `<tr><td>${c.house}</td><td>${c.sign}</td><td>${formatDmsOnly(c.longitude)}</td><td>${c.starLord}</td><td>${c.subLord}</td></tr>`).join('')}
+    </table>
+  `;
 }
 
 // Degree-min-sec WITHOUT the trailing sign name (the cell/house already

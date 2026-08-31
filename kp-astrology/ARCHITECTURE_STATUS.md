@@ -74,6 +74,24 @@ clear what's real vs. deferred at any point.
   days, 4-second timeout, fails silently offline, proper numeric semver
   comparison (not string comparison), 10-second auto-closing popup, never
   blocks startup. Client-side only — see "Deferred" below.
+- **Horary Prediction** (`js/horaryTable.js`, `js/horaryChart.js`,
+  `js/horaryEngine.js`, "Horary Prediction" tab): KP Horary number (1-243
+  currently — see caveat below) casting and the 4-step reading method
+  (query genuineness via Moon + Lagna sub lord, event promise via the
+  topic cusp's sub lord, cuspal strength ranking, conflicts vs. opposing
+  houses), covering all 32 existing event topics from `eventRules.js` via
+  a new `topicCuspHouse` field (this app's proposed KP default per topic —
+  editable). The Horary Ascendant is looked up from the SAME standard
+  sub-lord subdivision table used everywhere else (kpSubLords.js), and the
+  other 11 cusps are derived by rotating the REAL Placidus house framework
+  for the moment of judgment so its cusp 1 lands on the horary Ascendant —
+  reuses existing calculation code, introduces no new astronomical
+  calculation. CAVEAT: classical KP Horary literature describes 249
+  numbers; this table currently covers the well-verified 243 (the standard
+  sub-lord count) and leaves 244-249 unmapped rather than guess at a rule
+  that could silently shift every number's mapping — flagged prominently
+  in-app, pending your cross-check against known reference numbers from
+  your existing KP Horary software.
 - **Marriage Longevity Score** (`js/eventTimingEngine.js`, Event Timing tab):
   a natal-only 0-100 score (shown only for the Marriage / Separation-Divorce
   events) checking whether the 7th cusp's sub lord/sub-sub lord chain, the

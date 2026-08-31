@@ -78,6 +78,7 @@
   <button class="tab-button" id="tabBtnRectify" data-tab="tabRectify">Birth Time Rectification</button>
   <button class="tab-button" id="tabBtnEventTiming" data-tab="tabEventTiming">Event Timing</button>
   <button class="tab-button" id="tabBtnCharts" data-tab="tabCharts">Charts</button>
+  <button class="tab-button" id="tabBtnHorary" data-tab="tabHorary">Horary Prediction</button>
   <button class="tab-button" id="tabBtnSettings" data-tab="tabSettings">Settings</button>
 </div>
 
@@ -309,6 +310,47 @@
 </div>
 </div>
 
+<div class="tab-panel" id="tabHorary">
+<h2>Horary Prediction (KP Horary Numbers)</h2>
+<p>Give a horary number (1-243 currently supported — see the logic notes below), a query topic, and the moment/place of judgment. This does NOT use the currently loaded birth chart — it casts a separate Horary chart from the number itself, entirely offline.</p>
+<div id="horaryLogicOutput"></div>
+
+<fieldset>
+  <legend>Horary Number &amp; Query</legend>
+  <label>Horary Number (1-243): <input type="number" id="horaryNumberInput" min="1" max="243" value="169"></label>
+  <span id="horaryNumberPreview" style="margin-left:10px;color:#555;font-size:0.9em;"></span><br><br>
+  <label>Query: <select id="horaryEventSelect"></select></label>
+</fieldset>
+
+<fieldset>
+  <legend>Moment &amp; Place of Judgment</legend>
+  <label>Judgment Date: <input type="date" id="horaryJudgmentDate"></label>
+  <label>Judgment Time (local clock time): <input type="time" id="horaryJudgmentTime" step="60"></label><br><br>
+  <label>Latitude: <input type="text" id="horaryLat" placeholder="e.g. 28.6139"></label>
+  <label>Longitude: <input type="text" id="horaryLon" placeholder="e.g. 77.2090"></label><br><br>
+  <label>Timezone mode:
+    <select id="horaryTimezoneMode">
+      <option value="offset" selected>UTC offset</option>
+      <option value="iana">IANA time zone</option>
+    </select>
+  </label>
+  <label id="horaryUtcOffsetLabel">UTC offset (e.g. +5:30): <input type="text" id="horaryUtcOffset" placeholder="+5:30"></label>
+  <label id="horaryIanaZoneLabel" hidden>Time zone: <select id="horaryIanaZone"></select></label>
+</fieldset>
+
+<div class="controls">
+  <button id="runHoraryBtn">Analyze Horary</button>
+</div>
+
+<div id="horaryGenuinenessBox" class="output-box pastel-yellow"></div>
+<div id="horaryPromiseBox" class="output-box pastel-peach"></div>
+<div id="horaryStrengthBox" class="output-box pastel-mint"></div>
+<div class="rp-live-container">
+  <div class="rp-box pastel-blue" id="horaryPlanetsBox"></div>
+  <div class="rp-box pastel-lavender" id="horaryCuspsBox"></div>
+</div>
+</div>
+
 <div class="tab-panel" id="tabSettings">
 <h2>Settings</h2>
 <p>These choices affect every calculation in the app. Only options with a real, implemented formula can be selected — see the note below each dropdown.</p>
@@ -354,6 +396,9 @@
 <script src="js/rectification.js"></script>
 <script src="js/eventRules.js"></script>
 <script src="js/eventTimingEngine.js"></script>
+<script src="js/horaryTable.js"></script>
+<script src="js/horaryChart.js"></script>
+<script src="js/horaryEngine.js"></script>
 <script src="js/vedicCharts.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/updater.js"></script>
