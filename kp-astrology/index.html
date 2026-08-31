@@ -266,9 +266,16 @@
   <label>Months to drill into (top N by score): <input type="number" id="eventTimingTopMonths" value="5" min="1" max="20"></label>
 </fieldset>
 
+<fieldset>
+  <legend>Ruling Planets Filter (optional)</legend>
+  <label><input type="checkbox" id="eventTimingShowRp"> Show Ruling Planets (cast for the search start date, at the birth location)</label>
+  <p style="font-size:0.85em;color:#666;margin:4px 0 0;">The Event Promise box below is always shown BOTH without and with this filter, side by side, regardless of this checkbox — it only controls whether the underlying Ruling Planets list itself is displayed.</p>
+</fieldset>
+
 <div class="controls">
   <button id="runEventTimingBtn">Find Timing</button>
 </div>
+<div id="eventTimingRpBox" class="output-box pastel-pink" hidden></div>
 <div id="eventTimingPromiseBox" class="output-box pastel-yellow"></div>
 <div id="eventTimingLongevityBox" class="output-box pastel-lavender" hidden></div>
 <div id="eventTimingWindowsBox" class="output-box pastel-peach"></div>
@@ -338,10 +345,17 @@
   <label id="horaryIanaZoneLabel" hidden>Time zone: <select id="horaryIanaZone"></select></label>
 </fieldset>
 
+<fieldset>
+  <legend>Ruling Planets Filter (optional)</legend>
+  <label><input type="checkbox" id="horaryShowRp"> Show Ruling Planets for this judgment moment</label>
+  <p style="font-size:0.85em;color:#666;margin:4px 0 0;">Every reading below is always shown BOTH without and with this filter, side by side, regardless of this checkbox — it only controls whether the underlying Ruling Planets list itself is displayed.</p>
+</fieldset>
+
 <div class="controls">
   <button id="runHoraryBtn">Analyze Horary</button>
 </div>
 
+<div id="horaryRpBox" class="output-box pastel-pink" hidden></div>
 <div id="horaryGenuinenessBox" class="output-box pastel-yellow"></div>
 <div id="horaryPromiseBox" class="output-box pastel-peach"></div>
 <div id="horaryStrengthBox" class="output-box pastel-mint"></div>

@@ -74,6 +74,19 @@ clear what's real vs. deferred at any point.
   days, 4-second timeout, fails silently offline, proper numeric semver
   comparison (not string comparison), 10-second auto-closing popup, never
   blocks startup. Client-side only — see "Deferred" below.
+- **Ruling Planets filter, wired into Horary Prediction and Event Timing**
+  (`horaryEngine.js`'s `applyRulingPlanetFilter`, `eventTimingEngine.js`'s
+  `applyRulingPlanetFilterToPromise`, both reusing `rulingPlanets.js` /
+  `liveRulingPlanets.js` unchanged): a checkbox on each tab ("Show Ruling
+  Planets...") controls only whether the Ruling Planets list itself is
+  displayed — the promise/genuineness verdict is ALWAYS shown twice, side
+  by side ("without RP filter" vs "with RP filter", the latter requiring
+  the deciding planet to itself be a current Ruling Planet), with an
+  explicit caution that this is one optional confirmation technique, not a
+  required step, and the two readings can disagree. Horary uses Ruling
+  Planets cast for the judgment moment/place; Event Timing uses them cast
+  for the search start date at the birth location (since Event Promise
+  there is natal, not date-specific).
 - **Horary Prediction** (`js/horaryTable.js`, `js/horaryChart.js`,
   `js/horaryEngine.js`, "Horary Prediction" tab): KP Horary number (1-243
   currently — see caveat below) casting and the 4-step reading method

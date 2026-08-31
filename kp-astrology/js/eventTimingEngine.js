@@ -28,7 +28,9 @@ const EVENT_TIMING_LOGIC_TEXT = [
   ['6. PROGRESSIVE SEARCH: Level 1 (months) samples one point per month (mid-month, local noon) across the whole search horizon -- cheap, coarse. Only the highest-scoring months proceed to Level 2 (every day in that month, full score). Only the highest-scoring days proceed to Level 3 (every hour of that day). This avoids computing hourly transits for every hour of a multi-year search.'],
   ['7. WINDOWS: consecutive days at or above the "Favourable" threshold are grouped into one window with a peak day, rather than listed as isolated dates.'],
   [''],
-  ['Caveat: the exact transit-activation rules (components 3a-3d above) are one reasonable, explicitly documented rule set -- KP practitioners differ on precise transit-timing conventions, and this does not claim to be the only correct method. All weights and thresholds below are configurable constants, not fixed doctrine. This tool reports an "Astrological Activation Score" for a timing WINDOW already established as promised elsewhere in this app -- it is not a probability of the event occurring, and does not itself judge whether the event is promised at all beyond the same significator-connection check used throughout this app.']
+  ['Caveat: the exact transit-activation rules (components 3a-3d above) are one reasonable, explicitly documented rule set -- KP practitioners differ on precise transit-timing conventions, and this does not claim to be the only correct method. All weights and thresholds below are configurable constants, not fixed doctrine. This tool reports an "Astrological Activation Score" for a timing WINDOW already established as promised elsewhere in this app -- it is not a probability of the event occurring, and does not itself judge whether the event is promised at all beyond the same significator-connection check used throughout this app.'],
+  [''],
+  ['RULING PLANETS FILTER (optional, checkbox-controlled): the Event Promise box can additionally show a "with RP" reading -- Ruling Planets (rulingPlanets.js) cast for the search start date at the birth location, requiring the Event Promise\'s best-connecting planet to itself be a current Ruling Planet. Shown side by side with the normal "without RP" reading, never in place of it -- this is one additional confirmation technique some KP practitioners use, not a required step; use both readings at your own discretion.']
 ];
 
 // --- Configuration (scoring weights + classification thresholds) ---
@@ -96,6 +98,20 @@ function scorePromise(eventDef, significators, weights) {
     bestPlanet, housesConnected: bestHouses,
     conflictingHouse: opposingMatch
   };
+}
+
+// --- Section: Ruling Planets filter (optional, checkbox-controlled in UI) ---
+// Ruling Planets (rulingPlanets.js) cast for a given moment/place — this app
+// uses the search start date at the birth location, since Event Promise
+// itself is natal (not tied to any one candidate date). Shows the Event
+// Promise verdict BOTH as computed above ("without RP") AND filtered so it
+// additionally requires the deciding planet (promise.bestPlanet) to itself
+// be a current Ruling Planet ("with RP") — side by side, regardless of
+// whether the RP list itself is displayed. One optional confirmation
+// technique, not a required step — read both at your own discretion.
+function applyRulingPlanetFilterToPromise(promise, rp) {
+  const rpConfirmsPromise = !!(promise.bestPlanet && rp.allRulingPlanets.includes(promise.bestPlanet));
+  return { rp, withRp: { promised: promise.promised && rpConfirmsPromise, rpConfirmsPromise } };
 }
 
 // --- Section: DBA Capability (reuses dasha.js output) ---
@@ -389,6 +405,7 @@ if (typeof module !== 'undefined') {
     EVENT_TIMING_LOGIC_TEXT, EVENT_TIMING_WEIGHTS, EVENT_TIMING_THRESHOLDS, EVENT_TIMING_CONVERGENCE, classify,
     scorePromise, scoreDba, scoreTransit, scoreCandidate, buildNatalContext,
     searchMonths, searchDays, searchHours, detectWindows,
-    MARRIAGE_LONGEVITY_LOGIC_TEXT, scoreMarriageLongevity, classifyLongevity
+    MARRIAGE_LONGEVITY_LOGIC_TEXT, scoreMarriageLongevity, classifyLongevity,
+    applyRulingPlanetFilterToPromise
   };
 }

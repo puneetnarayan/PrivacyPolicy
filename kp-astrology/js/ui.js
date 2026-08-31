@@ -764,6 +764,20 @@ function renderPlanetaryRelations(relations) {
   el('planetaryRelationsOutput').innerHTML = html;
 }
 
+// Compact RP summary for the Horary / Event Timing "show RP" boxes — takes
+// computeLiveRulingPlanets()'s output shape ({dayLord, ascendant, moon,
+// allRulingPlanets}), unlike renderRulingPlanets() above which takes the
+// natal buildRulingPlanets() shape ({dayLord, ascendantLords, moonLords}).
+function renderRulingPlanetsSummary(rp, contextLabel) {
+  return `
+    <h3>Ruling Planets (${contextLabel})</h3>
+    <p><strong>Day Lord:</strong> ${rp.dayLord}</p>
+    <p><strong>Ascendant Lords:</strong> Sign: ${SIGN_LORD[rp.ascendant.sign]}, Star: ${rp.ascendant.starLord}, Sub: ${rp.ascendant.subLord}</p>
+    <p><strong>Moon Lords:</strong> Sign: ${SIGN_LORD[rp.moon.sign]}, Star: ${rp.moon.starLord}, Sub: ${rp.moon.subLord}</p>
+    <p><strong>All Ruling Planets:</strong> ${rp.allRulingPlanets.join(', ')}</p>
+  `;
+}
+
 function renderRulingPlanets(rp) {
   el('rulingPlanetsOutput').innerHTML = renderLogicDetails(RULING_PLANET_LOGIC_TEXT) + `
     <p><strong>Day Lord:</strong> ${rp.dayLord}</p>
@@ -1251,7 +1265,13 @@ function runEventTimingSearch() {
   );
 
   const promise = scorePromise(EVENT_RULES[eventKey], eventTimingNatal.significators, EVENT_TIMING_WEIGHTS);
-  renderEventTimingPromise(eventKey, promise);
+  const birthLat = parseFloat(el('birthLat').value);
+  const birthLon = parseFloat(el('birthLon').value);
+  const rpMoment = midOfMonth(startDate.getUTCFullYear(), startDate.getUTCMonth());
+  const rpFilter = (!isNaN(birthLat) && !isNaN(birthLon))
+    ? applyRulingPlanetFilterToPromise(promise, computeLiveRulingPlanets(rpMoment, birthLat, birthLon))
+    : null;
+  renderEventTimingPromise(eventKey, promise, rpFilter);
   renderEventTimingLongevity(eventKey);
 
   eventTimingMonths = searchMonths(eventKey, eventTimingNatal, startDate, endDate);
@@ -1270,13 +1290,33 @@ function runEventTimingSearch() {
   el('statusMsg').textContent = `Event timing search complete: ${eventTimingMonths.length} months screened, ${topMonths.length} drilled into daily detail.`;
 }
 
-function renderEventTimingPromise(eventKey, promise) {
+function renderEventTimingPromise(eventKey, promise, rpFilter) {
   const eventDef = EVENT_RULES[eventKey];
+  const rpBox = el('eventTimingRpBox');
+  if (rpFilter && el('eventTimingShowRp').checked) {
+    rpBox.hidden = false;
+    rpBox.innerHTML = renderRulingPlanetsSummary(rpFilter.rp, 'search start date, birth location');
+  } else {
+    rpBox.hidden = true;
+    rpBox.innerHTML = '';
+  }
+
+  const withoutRpHtml = `
+    <p><strong>Without RP filter: ${promise.promised ? 'YES — promise found' : 'NOT clearly promised'}</strong> (required houses: ${eventDef.requiredHouses.join(', ')})</p>
+    <p>${promise.bestPlanet ? `Best connecting planet: <strong>${promise.bestPlanet}</strong>, signifying houses ${promise.housesConnected.join(', ')} of ${eventDef.requiredHouses.length}.` : 'No single planet connects the required houses.'}</p>
+  `;
+  const withRpHtml = rpFilter ? `
+    <p><strong>With RP filter: ${rpFilter.withRp.promised ? 'YES — promise found' : 'NOT clearly promised'}</strong></p>
+    <p>${promise.bestPlanet ? `${promise.bestPlanet} is ${rpFilter.withRp.rpConfirmsPromise ? '' : 'NOT '}a current Ruling Planet.` : ''}</p>
+  ` : '<p>Enter Birth Latitude/Longitude in the Chart & Analysis tab to see the RP-filtered reading.</p>';
+
   el('eventTimingPromiseBox').innerHTML = `
     <h3>Event Promise: ${eventDef.label}</h3>
-    <p><strong>${promise.promised ? 'YES — promise found' : 'NOT clearly promised'}</strong> (required houses: ${eventDef.requiredHouses.join(', ')})</p>
-    <p>${promise.bestPlanet ? `Best connecting planet: <strong>${promise.bestPlanet}</strong>, signifying houses ${promise.housesConnected.join(', ')} of ${eventDef.requiredHouses.length}.` : 'No single planet connects the required houses.'}</p>
-    <p style="font-size:0.85em;color:#666;">Timing below is only meaningful once promise is established — see the Life Topic Promise Analysis tab for a fuller promise check.</p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:220px;">${withoutRpHtml}</div>
+      <div style="flex:1;min-width:220px;border-left:1px solid #ddd;padding-left:16px;">${withRpHtml}</div>
+    </div>
+    <p style="font-size:0.85em;color:#666;">Timing below is only meaningful once promise is established — see the Life Topic Promise Analysis tab for a fuller promise check. The Ruling Planets filter is one optional additional confirmation technique, not a required step — use both readings at your own discretion.</p>
   `;
 }
 
@@ -1547,23 +1587,50 @@ function runHoraryAnalysis() {
 }
 
 function renderHoraryResult(result) {
-  const { horaryChart, eventDef, genuineness, promise, cuspStrength, conflicts } = result;
+  const { horaryChart, eventDef, genuineness, promise, cuspStrength, conflicts, rulingPlanets } = result;
+
+  const rpBox = el('horaryRpBox');
+  if (el('horaryShowRp').checked) {
+    rpBox.hidden = false;
+    rpBox.innerHTML = renderRulingPlanetsSummary(rulingPlanets.rp, 'judgment moment & place');
+  } else {
+    rpBox.hidden = true;
+    rpBox.innerHTML = '';
+  }
 
   el('horaryGenuinenessBox').innerHTML = `
     <h3>Query Genuineness</h3>
-    <p><strong>${genuineness.overallGenuine ? 'GENUINE — proceed with the reading' : 'NOT clearly genuine — Moon and/or Lagna sub lord do not reflect the query'}</strong></p>
-    <p>Moon ${genuineness.moonGenuine ? 'signifies' : 'does NOT signify'} required house(s)${genuineness.moonHouses.length ? ': ' + genuineness.moonHouses.join(', ') : ''}.</p>
-    <p>Lagna sub lord (${genuineness.lagnaSubLord || '?'}) ${genuineness.lagnaGenuine ? 'signifies' : 'does NOT signify'} required house(s)${genuineness.lagnaHouses.length ? ': ' + genuineness.lagnaHouses.join(', ') : ''}.</p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:220px;">
+        <p><strong>Without RP filter: ${genuineness.overallGenuine ? 'GENUINE — proceed with the reading' : 'NOT clearly genuine'}</strong></p>
+        <p>Moon ${genuineness.moonGenuine ? 'signifies' : 'does NOT signify'} required house(s)${genuineness.moonHouses.length ? ': ' + genuineness.moonHouses.join(', ') : ''}.</p>
+        <p>Lagna sub lord (${genuineness.lagnaSubLord || '?'}) ${genuineness.lagnaGenuine ? 'signifies' : 'does NOT signify'} required house(s)${genuineness.lagnaHouses.length ? ': ' + genuineness.lagnaHouses.join(', ') : ''}.</p>
+      </div>
+      <div style="flex:1;min-width:220px;border-left:1px solid #ddd;padding-left:16px;">
+        <p><strong>With RP filter: ${rulingPlanets.withRp.genuine ? 'GENUINE — proceed with the reading' : 'NOT clearly genuine'}</strong></p>
+        <p>Lagna sub lord (${genuineness.lagnaSubLord || '?'}) is ${rulingPlanets.withRp.rpConfirmsGenuineness ? '' : 'NOT '}a current Ruling Planet.</p>
+      </div>
+    </div>
+    <p style="font-size:0.85em;color:#666;">The Ruling Planets filter is one optional additional confirmation technique, not a required step — use both readings at your own discretion.</p>
   `;
 
   el('horaryPromiseBox').innerHTML = `
     <h3>Event Promise: ${eventDef.label}</h3>
-    <p><strong>${promise.promised ? 'YES — promised' : 'NOT clearly promised'}</strong> (required houses: ${eventDef.requiredHouses.join(', ')}, topic cusp: ${promise.topicCuspHouse})</p>
-    <p>${promise.topicSubLord ? `Topic cusp (${promise.topicCuspHouse}) sub lord <strong>${promise.topicSubLord}</strong>${promise.housesConnected.length ? ` connects houses ${promise.housesConnected.join(', ')}.` : ' does not connect any required house.'}` : ''}</p>
-    ${(conflicts.topicSubLordOpposing.length || conflicts.lagnaSubLordOpposing.length) ? `<p style="color:#b71c1c;">Conflicting factor(s): ${[
-      conflicts.topicSubLordOpposing.length ? `topic sub lord also signifies opposing house(s) ${conflicts.topicSubLordOpposing.join(', ')}` : null,
-      conflicts.lagnaSubLordOpposing.length ? `Lagna sub lord also signifies opposing house(s) ${conflicts.lagnaSubLordOpposing.join(', ')}` : null
-    ].filter(Boolean).join('; ')}.</p>` : ''}
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:220px;">
+        <p><strong>Without RP filter: ${promise.promised ? 'YES — promised' : 'NOT clearly promised'}</strong> (required houses: ${eventDef.requiredHouses.join(', ')}, topic cusp: ${promise.topicCuspHouse})</p>
+        <p>${promise.topicSubLord ? `Topic cusp (${promise.topicCuspHouse}) sub lord <strong>${promise.topicSubLord}</strong>${promise.housesConnected.length ? ` connects houses ${promise.housesConnected.join(', ')}.` : ' does not connect any required house.'}` : ''}</p>
+        ${(conflicts.topicSubLordOpposing.length || conflicts.lagnaSubLordOpposing.length) ? `<p style="color:#b71c1c;">Conflicting factor(s): ${[
+          conflicts.topicSubLordOpposing.length ? `topic sub lord also signifies opposing house(s) ${conflicts.topicSubLordOpposing.join(', ')}` : null,
+          conflicts.lagnaSubLordOpposing.length ? `Lagna sub lord also signifies opposing house(s) ${conflicts.lagnaSubLordOpposing.join(', ')}` : null
+        ].filter(Boolean).join('; ')}.</p>` : ''}
+      </div>
+      <div style="flex:1;min-width:220px;border-left:1px solid #ddd;padding-left:16px;">
+        <p><strong>With RP filter: ${rulingPlanets.withRp.promised ? 'YES — promised' : 'NOT clearly promised'}</strong></p>
+        <p>${promise.topicSubLord ? `Topic cusp sub lord ${promise.topicSubLord} is ${rulingPlanets.withRp.rpConfirmsPromise ? '' : 'NOT '}a current Ruling Planet.` : ''}</p>
+      </div>
+    </div>
+    <p style="font-size:0.85em;color:#666;">The Ruling Planets filter is one optional additional confirmation technique, not a required step — use both readings at your own discretion.</p>
   `;
 
   el('horaryStrengthBox').innerHTML = `
