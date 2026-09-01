@@ -74,6 +74,22 @@ clear what's real vs. deferred at any point.
   days, 4-second timeout, fails silently offline, proper numeric semver
   comparison (not string comparison), 10-second auto-closing popup, never
   blocks startup. Client-side only — see "Deferred" below.
+- **Auto Predicted Event Promise** (`js/eventPromiseTable.js`, "Auto
+  Predicted Event Promise" tab): a per-house/per-Moon breakdown table of
+  the same Event Promise check used elsewhere in this app, styled after a
+  reference KP software's Event Analysis screen (a screenshot the user
+  supplied) — one row per relevant cusp (the event's topic cusp + its
+  required houses) plus a Moon row, each showing Sign/Nakshatra/DMS, its
+  Sub Lord/Star Lord/Sub-Sub Lord and the Sub Lord's own house placement,
+  its full significator list, and a Y/N + hand-pointer flag for whether it
+  confirms the query. Always shown for the currently loaded natal chart; a
+  second Horary-chart version of the same table appears below it ONLY
+  after "Analyze Horary" has actually been pressed at least once in the
+  Horary Prediction tab (tracked via a `lastHoraryAnalysis` flag) — the
+  Horary tab's pre-filled default number is never used here on its own, so
+  nothing appears from an un-submitted default. Introduces no new
+  astronomical calculation — reuses significators.js and the sign/star/sub
+  lord fields already derived by kpSubLords.js.
 - **Ruling Planets filter, wired into Horary Prediction and Event Timing**
   (`horaryEngine.js`'s `applyRulingPlanetFilter`, `eventTimingEngine.js`'s
   `applyRulingPlanetFilterToPromise`, both reusing `rulingPlanets.js` /

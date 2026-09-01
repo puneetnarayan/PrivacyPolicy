@@ -79,6 +79,7 @@
   <button class="tab-button" id="tabBtnEventTiming" data-tab="tabEventTiming">Event Timing</button>
   <button class="tab-button" id="tabBtnCharts" data-tab="tabCharts">Charts</button>
   <button class="tab-button" id="tabBtnHorary" data-tab="tabHorary">Horary Prediction</button>
+  <button class="tab-button" id="tabBtnEventPromise" data-tab="tabEventPromise">Auto Predicted Event Promise</button>
   <button class="tab-button" id="tabBtnSettings" data-tab="tabSettings">Settings</button>
 </div>
 
@@ -365,6 +366,23 @@
 </div>
 </div>
 
+<div class="tab-panel" id="tabEventPromise">
+<h2>Auto Predicted Event Promise</h2>
+<p>A per-house breakdown of the same Event Promise check used in the Event Timing and Horary Prediction tabs, laid out row-by-row (one row per relevant cusp, plus the Moon) — modeled after a reference KP software's Event Analysis screen. Always shown for the CURRENTLY LOADED natal chart (Chart &amp; Analysis tab); the Horary chart's version appears below it ONLY after you have pressed "Analyze Horary" in the Horary Prediction tab at least once — the tab's pre-filled default horary number is never used here on its own.</p>
+<div id="eventPromiseLogicOutput"></div>
+
+<fieldset>
+  <legend>Query</legend>
+  <label>Event: <select id="eventPromiseSelect"></select></label>
+</fieldset>
+<div class="controls">
+  <button id="runEventPromiseBtn">Analyze Event Promise</button>
+</div>
+
+<div id="eventPromiseNatalBox" class="output-box pastel-yellow"></div>
+<div id="eventPromiseHoraryBox" class="output-box pastel-peach" hidden></div>
+</div>
+
 <div class="tab-panel" id="tabSettings">
 <h2>Settings</h2>
 <p>These choices affect every calculation in the app. Only options with a real, implemented formula can be selected — see the note below each dropdown.</p>
@@ -413,6 +431,7 @@
 <script src="js/horaryTable.js"></script>
 <script src="js/horaryChart.js"></script>
 <script src="js/horaryEngine.js"></script>
+<script src="js/eventPromiseTable.js"></script>
 <script src="js/vedicCharts.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/updater.js"></script>

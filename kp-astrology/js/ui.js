@@ -62,6 +62,12 @@ function loadDefaultBirthDetails() {
 // Cached results from the last runComputations(), used by the Life Topics export.
 let lastResults = { significators: null, dasha: null };
 
+// Set only when "Analyze Horary" has actually been pressed (see
+// runHoraryAnalysis) — the Auto Predicted Event Promise tab's Horary
+// section stays hidden until this is non-null, never shown from the
+// Horary tab's pre-filled default number alone.
+let lastHoraryAnalysis = null;
+
 function el(id) { return document.getElementById(id); }
 
 function init() {
@@ -82,6 +88,7 @@ function init() {
   initEventTimingTab();
   initChartsTab();
   initHoraryTab();
+  initEventPromiseTab();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -1583,6 +1590,10 @@ function runHoraryAnalysis() {
   }
 
   renderHoraryResult(result);
+  // Explicit submission flag — the Auto Predicted Event Promise tab's Horary
+  // section only appears after this button has actually been pressed, never
+  // from the tab's pre-filled default horary number alone.
+  lastHoraryAnalysis = result;
   el('statusMsg').textContent = `Horary analysis complete for number ${horaryNumber} (${result.eventDef.label}).`;
 }
 
@@ -1652,6 +1663,79 @@ function renderHoraryResult(result) {
     <table><tr><th>House</th><th>Sign</th><th>Position (DMS)</th><th>Star Lord</th><th>Sub Lord</th></tr>
     ${horaryChart.cusps.map(c => `<tr><td>${c.house}</td><td>${c.sign}</td><td>${formatDmsOnly(c.longitude)}</td><td>${c.starLord}</td><td>${c.subLord}</td></tr>`).join('')}
     </table>
+  `;
+}
+
+function initEventPromiseTab() {
+  el('eventPromiseLogicOutput').innerHTML = renderLogicDetails(EVENT_PROMISE_TABLE_LOGIC_TEXT);
+
+  const byCategory = {};
+  Object.keys(EVENT_RULES).forEach(key => {
+    const cat = EVENT_RULES[key].category;
+    (byCategory[cat] = byCategory[cat] || []).push(key);
+  });
+  el('eventPromiseSelect').innerHTML = Object.keys(byCategory).map(cat =>
+    `<optgroup label="${cat}">` +
+    byCategory[cat].map(key => `<option value="${key}">${EVENT_RULES[key].label}</option>`).join('') +
+    '</optgroup>'
+  ).join('');
+
+  el('runEventPromiseBtn').addEventListener('click', runEventPromiseAnalysis);
+}
+
+function runEventPromiseAnalysis() {
+  const eventKey = el('eventPromiseSelect').value;
+  const eventDef = EVENT_RULES[eventKey];
+
+  const natalPlanets = state.planets.filter(p => p.name);
+  const natalCusps = state.cusps.filter(c => c.house);
+  if (!natalPlanets.length || !natalCusps.length) {
+    el('eventPromiseNatalBox').innerHTML = '<p>Load/generate a chart in the Chart & Analysis tab first.</p>';
+  } else {
+    const natalTable = buildEventPromiseTable(natalPlanets, natalCusps, eventDef);
+    el('eventPromiseNatalBox').innerHTML = renderEventPromiseTableHtml('Natal Chart (Currently Loaded)', natalTable);
+  }
+
+  if (lastHoraryAnalysis) {
+    const horaryChart = lastHoraryAnalysis.horaryChart;
+    const horaryTable = buildEventPromiseTable(horaryChart.planets, horaryChart.cusps, eventDef);
+    el('eventPromiseHoraryBox').hidden = false;
+    el('eventPromiseHoraryBox').innerHTML = renderEventPromiseTableHtml(`Horary Chart (Horary No. ${horaryChart.horaryNumber})`, horaryTable);
+  } else {
+    el('eventPromiseHoraryBox').hidden = true;
+    el('eventPromiseHoraryBox').innerHTML = '';
+  }
+
+  el('statusMsg').textContent = `Event Promise analysis complete for ${eventDef.label}.`;
+}
+
+function renderEventPromiseTableHtml(title, table) {
+  const { eventDef, rows } = table;
+  return `
+    <h3>${title} — ${eventDef.label}</h3>
+    <p style="font-size:0.85em;color:#666;">Topic cusp: ${eventDef.topicCuspHouse} · Required houses: ${eventDef.requiredHouses.join(', ')} · Opposing houses: ${eventDef.opposingHouses.join(', ') || '—'}</p>
+    <div style="overflow-x:auto;">
+    <table>
+      <tr><th>House/Point</th><th>Position (DMS)</th><th>Sign</th><th>Nakshatra</th><th>Analysis</th><th></th><th>Significators</th><th>Y/N</th></tr>
+      ${rows.map(r => `
+        <tr>
+          <td>${r.label === 'Moon' ? 'Moon' : 'H' + r.label}</td>
+          <td>${formatDmsOnly(r.longitude)}</td>
+          <td>${r.sign}</td>
+          <td>${r.nakshatra} (${r.pada})</td>
+          <td style="text-align:left;">
+            Sub Lord: ${r.subLord || '—'}${r.subLordHouse ? ` (House ${r.subLordHouse})` : ''}<br>
+            Star Lord: ${r.starLord || '—'}<br>
+            Sub-Sub Lord: ${r.subSubLord || '—'}
+          </td>
+          <td style="font-size:1.2em;">${r.confirms ? '👉' : ''}</td>
+          <td style="font-size:0.85em;">{${r.significators.join(', ')}}</td>
+          <td style="font-weight:bold;color:${r.confirms ? '#2e7d32' : '#999'};">${r.confirms ? 'Y' : 'N'}</td>
+        </tr>
+      `).join('')}
+    </table>
+    </div>
+    <p style="font-size:0.85em;color:#666;">👉 / Y marks a row whose Sub Lord (or the Moon itself) signifies at least one required house — the same rule used for Event Promise elsewhere in this app.</p>
   `;
 }
 
