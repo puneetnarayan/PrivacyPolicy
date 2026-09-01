@@ -74,6 +74,27 @@ clear what's real vs. deferred at any point.
   days, 4-second timeout, fails silently offline, proper numeric semver
   comparison (not string comparison), 10-second auto-closing popup, never
   blocks startup. Client-side only — see "Deferred" below.
+- **Cuspal Interlinks (Bhaskaran Paddhatee)** (`js/cuspalInterlinks.js`,
+  "Cuspal Interlinks" tab): for chosen house cusps, walks the Sub Lord ->
+  (that planet's own) Star Lord -> (that planet's own) Sub Lord chain,
+  shows each link's significated houses, and classifies favorability via
+  the standard KP house-nature rule (1,3,5,7,9,11 Favorable; 4,8,12
+  Unfavorable; 2,6,10 Neutral) — modeled on a reference KP software's
+  Cuspal Links screen (screenshot supplied by the user). Also computes
+  whether the Moon reflects a selected query, and Final/Common/Fruitful
+  significators across the analyzed cusps for that query. Works on THREE
+  chart sources: the natal chart (always available), the Horary chart
+  (only after "Analyze Horary" has actually been pressed — reuses the same
+  `lastHoraryAnalysis` gate as the Event Promise tab), and a new "Time
+  Chart" mode (any arbitrary moment/place, reusing `autoChart.js`'s
+  `generateChart()` unchanged). CAVEAT, flagged prominently in-app: the
+  house-favorability rule, the Sub Lord chain, and the Moon/significators
+  logic reproduce standard KP mechanics already used elsewhere in this
+  app — but the reference software's exact "Potential Stl/Sbl" and
+  combined-verdict scoring formula could not be reliably reverse-engineered
+  from a screenshot, so this app uses its own documented, simpler
+  combination rule for those two columns specifically, which may disagree
+  with that software's exact wording on some rows.
 - **Auto Predicted Event Promise** (`js/eventPromiseTable.js`, "Auto
   Predicted Event Promise" tab): a per-house/per-Moon breakdown table of
   the same Event Promise check used elsewhere in this app, styled after a

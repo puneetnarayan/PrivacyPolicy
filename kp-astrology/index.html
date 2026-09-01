@@ -80,6 +80,7 @@
   <button class="tab-button" id="tabBtnCharts" data-tab="tabCharts">Charts</button>
   <button class="tab-button" id="tabBtnHorary" data-tab="tabHorary">Horary Prediction</button>
   <button class="tab-button" id="tabBtnEventPromise" data-tab="tabEventPromise">Auto Predicted Event Promise</button>
+  <button class="tab-button" id="tabBtnCuspalLinks" data-tab="tabCuspalLinks">Cuspal Interlinks</button>
   <button class="tab-button" id="tabBtnSettings" data-tab="tabSettings">Settings</button>
 </div>
 
@@ -383,6 +384,52 @@
 <div id="eventPromiseHoraryBox" class="output-box pastel-peach" hidden></div>
 </div>
 
+<div class="tab-panel" id="tabCuspalLinks">
+<h2>Cuspal Interlinks (Bhaskaran Paddhatee)</h2>
+<p>Sub Lord -&gt; Star Lord -&gt; Sub Lord chain analysis for chosen house cusps, with a KP favorability classification (1,3,5,7,9,11 Favorable; 4,8,12 Unfavorable; 2,6,10 Neutral). Modeled on a reference KP software's Cuspal Links screen — see the logic notes below for what is and isn't independently verified.</p>
+<div id="cuspalLinksLogicOutput"></div>
+
+<fieldset>
+  <legend>Chart Source</legend>
+  <label><input type="radio" name="cuspalChartSource" value="natal" checked> Natal Chart (currently loaded)</label>
+  <label><input type="radio" name="cuspalChartSource" value="horary"> Horary Chart (only after "Analyze Horary" has been submitted)</label>
+  <label><input type="radio" name="cuspalChartSource" value="time"> Time Chart (cast for any moment/place below)</label>
+</fieldset>
+
+<fieldset id="cuspalTimeChartFields" hidden>
+  <legend>Time Chart — Moment &amp; Place</legend>
+  <label>Date: <input type="date" id="cuspalTimeDate"></label>
+  <label>Time (local clock time): <input type="time" id="cuspalTimeTime" step="60"></label><br><br>
+  <label>Latitude: <input type="text" id="cuspalTimeLat" placeholder="e.g. 28.6139"></label>
+  <label>Longitude: <input type="text" id="cuspalTimeLon" placeholder="e.g. 77.2090"></label><br><br>
+  <label>Timezone mode:
+    <select id="cuspalTimeTimezoneMode">
+      <option value="offset" selected>UTC offset</option>
+      <option value="iana">IANA time zone</option>
+    </select>
+  </label>
+  <label id="cuspalTimeUtcOffsetLabel">UTC offset (e.g. +5:30): <input type="text" id="cuspalTimeUtcOffset" placeholder="+5:30"></label>
+  <label id="cuspalTimeIanaZoneLabel" hidden>Time zone: <select id="cuspalTimeIanaZone"></select></label>
+</fieldset>
+
+<fieldset>
+  <legend>Cusps to Analyze</legend>
+  <div id="cuspalHouseCheckboxes"></div>
+</fieldset>
+
+<fieldset>
+  <legend>Query (optional — enables Moon-reflects-query and Final/Common/Fruitful significators)</legend>
+  <label><input type="checkbox" id="cuspalUseEvent"> Use a query</label>
+  <label>Event: <select id="cuspalEventSelect" disabled></select></label>
+</fieldset>
+
+<div class="controls">
+  <button id="runCuspalLinksBtn">Analyze Cuspal Interlinks</button>
+</div>
+
+<div id="cuspalLinksBox" class="output-box pastel-yellow"></div>
+</div>
+
 <div class="tab-panel" id="tabSettings">
 <h2>Settings</h2>
 <p>These choices affect every calculation in the app. Only options with a real, implemented formula can be selected — see the note below each dropdown.</p>
@@ -432,6 +479,7 @@
 <script src="js/horaryChart.js"></script>
 <script src="js/horaryEngine.js"></script>
 <script src="js/eventPromiseTable.js"></script>
+<script src="js/cuspalInterlinks.js"></script>
 <script src="js/vedicCharts.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/updater.js"></script>

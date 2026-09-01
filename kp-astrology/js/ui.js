@@ -89,6 +89,7 @@ function init() {
   initChartsTab();
   initHoraryTab();
   initEventPromiseTab();
+  initCuspalLinksTab();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -1737,6 +1738,165 @@ function renderEventPromiseTableHtml(title, table) {
     </div>
     <p style="font-size:0.85em;color:#666;">👉 / Y marks a row whose Sub Lord (or the Moon itself) signifies at least one required house — the same rule used for Event Promise elsewhere in this app.</p>
   `;
+}
+
+function initCuspalLinksTab() {
+  el('cuspalLinksLogicOutput').innerHTML = renderLogicDetails(CUSPAL_INTERLINKS_LOGIC_TEXT);
+
+  el('cuspalHouseCheckboxes').innerHTML = Array.from({ length: 12 }, (_, i) => i + 1)
+    .map(h => `<label style="margin-right:10px;"><input type="checkbox" class="cuspalHouseCb" value="${h}" checked> H${h}</label>`)
+    .join('');
+
+  const byCategory = {};
+  Object.keys(EVENT_RULES).forEach(key => {
+    const cat = EVENT_RULES[key].category;
+    (byCategory[cat] = byCategory[cat] || []).push(key);
+  });
+  el('cuspalEventSelect').innerHTML = Object.keys(byCategory).map(cat =>
+    `<optgroup label="${cat}">` +
+    byCategory[cat].map(key => `<option value="${key}">${EVENT_RULES[key].label}</option>`).join('') +
+    '</optgroup>'
+  ).join('');
+
+  el('cuspalUseEvent').addEventListener('change', () => {
+    el('cuspalEventSelect').disabled = !el('cuspalUseEvent').checked;
+  });
+
+  document.querySelectorAll('input[name="cuspalChartSource"]').forEach(r => {
+    r.addEventListener('change', () => {
+      el('cuspalTimeChartFields').hidden = document.querySelector('input[name="cuspalChartSource"]:checked').value !== 'time';
+    });
+  });
+
+  const now = new Date();
+  el('cuspalTimeDate').value = now.toISOString().slice(0, 10);
+  el('cuspalTimeTime').value = now.toISOString().slice(11, 16);
+  el('cuspalTimeLat').value = DEFAULT_BIRTH_DETAILS.birthLat;
+  el('cuspalTimeLon').value = DEFAULT_BIRTH_DETAILS.birthLon;
+  el('cuspalTimeUtcOffset').value = DEFAULT_BIRTH_DETAILS.utcOffset;
+
+  el('cuspalTimeTimezoneMode').addEventListener('change', () => {
+    const mode = el('cuspalTimeTimezoneMode').value;
+    el('cuspalTimeIanaZoneLabel').hidden = mode !== 'iana';
+    el('cuspalTimeUtcOffsetLabel').hidden = mode !== 'offset';
+  });
+  const cuspalIanaSelect = el('cuspalTimeIanaZone');
+  try {
+    const zones = Intl.supportedValuesOf('timeZone');
+    cuspalIanaSelect.innerHTML = zones.map(z => `<option value="${z}">${z}</option>`).join('');
+    const guessed = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (guessed && zones.includes(guessed)) cuspalIanaSelect.value = guessed;
+  } catch (e) {
+    cuspalIanaSelect.innerHTML = '<option value="">(not supported — use UTC offset mode)</option>';
+  }
+
+  el('runCuspalLinksBtn').addEventListener('click', runCuspalLinksAnalysis);
+}
+
+function runCuspalLinksAnalysis() {
+  const source = document.querySelector('input[name="cuspalChartSource"]:checked').value;
+  const cuspHouses = Array.from(document.querySelectorAll('.cuspalHouseCb:checked')).map(cb => Number(cb.value));
+  const eventKey = el('cuspalUseEvent').checked ? el('cuspalEventSelect').value : null;
+
+  if (!cuspHouses.length) {
+    el('statusMsg').textContent = 'Select at least one cusp to analyze.';
+    return;
+  }
+
+  let planets, cusps, title;
+  if (source === 'natal') {
+    planets = state.planets.filter(p => p.name);
+    cusps = state.cusps.filter(c => c.house);
+    title = 'Natal Chart (Currently Loaded)';
+    if (!planets.length || !cusps.length) {
+      el('cuspalLinksBox').innerHTML = '<p>Load/generate a chart in the Chart & Analysis tab first.</p>';
+      return;
+    }
+  } else if (source === 'horary') {
+    if (!lastHoraryAnalysis) {
+      el('cuspalLinksBox').innerHTML = '<p>Press "Analyze Horary" in the Horary Prediction tab first — the default horary number alone is not used here.</p>';
+      return;
+    }
+    planets = lastHoraryAnalysis.horaryChart.planets;
+    cusps = lastHoraryAnalysis.horaryChart.cusps;
+    title = `Horary Chart (Horary No. ${lastHoraryAnalysis.horaryChart.horaryNumber})`;
+  } else {
+    const dateStr = el('cuspalTimeDate').value;
+    const timeStr = el('cuspalTimeTime').value;
+    const lat = parseFloat(el('cuspalTimeLat').value);
+    const lon = parseFloat(el('cuspalTimeLon').value);
+    if (!dateStr || !timeStr || isNaN(lat) || isNaN(lon)) {
+      el('statusMsg').textContent = 'Enter Time Chart date, time, latitude, and longitude first.';
+      return;
+    }
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const [hour, minute] = timeStr.split(':').map(Number);
+    let momentUtc;
+    try {
+      if (el('cuspalTimeTimezoneMode').value === 'iana') {
+        const zone = el('cuspalTimeIanaZone').value;
+        if (!zone) { el('statusMsg').textContent = 'Select a time zone, or switch to UTC offset mode.'; return; }
+        momentUtc = zonedLocalToUtc(year, month, day, hour, minute, zone);
+      } else {
+        momentUtc = offsetLocalToUtc(year, month, day, hour, minute, parseUtcOffsetToMinutes(el('cuspalTimeUtcOffset').value));
+      }
+    } catch (err) {
+      el('statusMsg').textContent = 'Timezone error: ' + err.message;
+      return;
+    }
+    const chart = generateChart(momentUtc, lat, lon);
+    planets = chart.planets; cusps = chart.cusps;
+    title = 'Time Chart';
+  }
+
+  const result = buildCuspalInterlinks(planets, cusps, cuspHouses, eventKey);
+  el('cuspalLinksBox').innerHTML = renderCuspalLinksHtml(title, result);
+  el('statusMsg').textContent = `Cuspal Interlinks analysis complete (${title}).`;
+}
+
+function renderCuspalLinksHtml(title, result) {
+  const { rows, eventDef, moonReflectsQuery, finalSignificators, commonSignificators, fruitfulSignificators } = result;
+
+  const verdictColor = v => v === 'Positive' ? '#2e7d32' : (v === 'Negative' ? '#b71c1c' : '#a06a00');
+  const linkCell = link => `${link.planet || '—'} (${link.houses.join(', ') || '—'})<br><span style="font-size:0.85em;color:#666;">${link.potential}</span>`;
+
+  let html = `<h3>${title}${eventDef ? ' — ' + eventDef.label : ''}</h3>`;
+  if (eventDef) {
+    html += `<p style="font-size:0.85em;color:#666;">Required houses: ${eventDef.requiredHouses.join(', ')} · Opposing houses: ${eventDef.opposingHouses.join(', ') || '—'}</p>`;
+  }
+
+  html += `<div style="overflow-x:auto;"><table>
+    <tr><th>BH</th><th>Degree</th><th>Rashi</th><th>Nakshatra</th><th>Link 1 (Sbl)</th><th>Link 2 (Stl of Sbl)</th><th>Link 3 (Sbl of Sbl)</th><th>Link (combined)</th><th>Potential Stl</th><th>Potential Sbl</th><th>Verdict (Stl-Sbl)</th>${eventDef ? '<th>Confirms?</th>' : ''}</tr>
+    ${rows.map(r => `
+      <tr>
+        <td>${r.house}</td>
+        <td>${formatDmsOnly(r.longitude)}</td>
+        <td>${r.sign}</td>
+        <td>${r.nakshatra} (${r.pada})</td>
+        <td style="text-align:left;">${linkCell(r.link1)}</td>
+        <td style="text-align:left;">${linkCell(r.link2)}</td>
+        <td style="text-align:left;">${linkCell(r.link3)}</td>
+        <td style="font-size:0.85em;">{${r.combinedHouses.join(', ')}}</td>
+        <td>${r.link2.potential}</td>
+        <td>${r.link3.potential}</td>
+        <td style="font-weight:bold;color:${verdictColor(r.verdict)};">${r.verdict}</td>
+        ${eventDef ? `<td style="font-weight:bold;color:${r.confirmsEvent ? '#2e7d32' : '#999'};">${r.confirmsEvent ? 'Y' : 'N'}</td>` : ''}
+      </tr>
+    `).join('')}
+  </table></div>`;
+
+  if (moonReflectsQuery) {
+    html += `<p><strong>Moon reflects the query:</strong> ${moonReflectsQuery.reflects ? `YES — Moon signifies house(s) ${moonReflectsQuery.matchedHouses.join(', ')}.` : 'NO — Moon does not signify any required house.'}</p>`;
+  }
+  if (eventDef) {
+    html += `
+      <p><strong>Final Significators:</strong> ${finalSignificators.join(', ') || '—'}</p>
+      <p><strong>Common Significators:</strong> ${commonSignificators.join(', ') || '—'}</p>
+      <p><strong>Fruitful Significators:</strong> ${fruitfulSignificators.join(', ') || '—'}</p>
+    `;
+  }
+  html += '<p style="font-size:0.85em;color:#666;">Potential/Verdict columns are this app\'s own documented approximation — see the logic notes above for the caveat on exact wording vs. other KP software.</p>';
+  return html;
 }
 
 // Degree-min-sec WITHOUT the trailing sign name (the cell/house already
