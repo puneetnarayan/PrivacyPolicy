@@ -21,20 +21,41 @@ const LOCATION_SERVICE_LOGIC_TEXT = [
 ];
 
 const PLACES_DB_PATH = 'geo/places.db';
+// Optional supplementary databases (same schema), loaded in ADDITION to
+// places.db when present — lets you drop in a deeper, single-country
+// GeoNames import (e.g. geo/places-india.db, built via import-geonames.js,
+// for full village-level India coverage) without replacing the smaller
+// worldwide-cities database that ships by default. A missing file here is
+// completely normal (not an error) — it's just not installed.
+const OPTIONAL_SUPPLEMENTARY_DB_PATHS = ['geo/places-india.db'];
 const SQLJS_WASM_DIR = 'js/sqljs/';
 
 let dbLoadPromise = null;
 
+async function loadOneDb(SQL, dbPath, required) {
+  try {
+    const response = await fetch(dbPath);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const buffer = await response.arrayBuffer();
+    return new SQL.Database(new Uint8Array(buffer));
+  } catch (err) {
+    if (required) throw new Error(`Could not load ${dbPath} (${err.message}).`);
+    return null; // optional supplementary DB simply isn't installed — not an error
+  }
+}
+
+// Returns an array of loaded sql.js Database objects: places.db (required)
+// plus any installed optional supplementary databases. Searches run
+// against every database in this array and merge the results.
 function loadPlacesDb() {
   if (dbLoadPromise) return dbLoadPromise;
   dbLoadPromise = (async () => {
     const initSqlJsFn = window.initSqlJs;
     if (!initSqlJsFn) throw new Error('sql.js failed to load (js/sqljs/sql-wasm.js missing or blocked).');
     const SQL = await initSqlJsFn({ locateFile: file => SQLJS_WASM_DIR + file });
-    const response = await fetch(PLACES_DB_PATH);
-    if (!response.ok) throw new Error(`Could not load ${PLACES_DB_PATH} (HTTP ${response.status}).`);
-    const buffer = await response.arrayBuffer();
-    return new SQL.Database(new Uint8Array(buffer));
+    const primary = await loadOneDb(SQL, PLACES_DB_PATH, true);
+    const supplementary = await Promise.all(OPTIONAL_SUPPLEMENTARY_DB_PATHS.map(p => loadOneDb(SQL, p, false)));
+    return [primary, ...supplementary.filter(Boolean)];
   })();
   return dbLoadPromise;
 }
@@ -90,16 +111,11 @@ function runQuery(db, sql, params) {
   return rows;
 }
 
-// Searches places.db for `query`, returns up to `limit` location objects,
-// ranked per LOCATION_SERVICE_LOGIC_TEXT's rule 4. Returns [] for queries
-// under 2 characters (never searches on 0-1 chars) — call sites debounce
-// and enforce the minimum-length gate at the UI layer too.
-async function searchPlaces(query, limit) {
-  limit = limit || 8;
-  const q = String(query || '').trim().toLowerCase();
-  if (q.length < 2) return [];
-
-  const db = await loadPlacesDb();
+// Runs the two-phase (prefix, then contains-fallback) search against ONE
+// database and returns its candidate rows, tagged with `_dbIndex` so ids
+// from different databases (each starting their own PRIMARY KEY at 1)
+// never collide when results are merged across databases.
+function searchOneDb(db, dbIndex, q, limit) {
   const upperBound = q.slice(0, -1) + String.fromCharCode(q.charCodeAt(q.length - 1) + 1);
 
   // Phase 1: indexed prefix match on the primary (search_name) index — fast
@@ -124,6 +140,22 @@ async function searchPlaces(query, limit) {
     const seen = new Set(candidateRows.map(r => r.id));
     containsRows.forEach(r => { if (!seen.has(r.id)) { candidateRows.push(r); seen.add(r.id); } });
   }
+  candidateRows.forEach(r => { r._dbIndex = dbIndex; });
+  return candidateRows;
+}
+
+// Searches every loaded database (places.db plus any installed optional
+// supplementary databases) for `query`, merges the results, and returns up
+// to `limit` location objects ranked per LOCATION_SERVICE_LOGIC_TEXT's rule
+// 4. Returns [] for queries under 2 characters (never searches on 0-1
+// chars) — call sites debounce and enforce the minimum-length gate too.
+async function searchPlaces(query, limit) {
+  limit = limit || 8;
+  const q = String(query || '').trim().toLowerCase();
+  if (q.length < 2) return [];
+
+  const dbs = await loadPlacesDb();
+  const candidateRows = dbs.flatMap((db, i) => searchOneDb(db, i, q, limit));
 
   const ranked = candidateRows.map(row => {
     const name = String(row.name).toLowerCase();

@@ -74,6 +74,31 @@ clear what's real vs. deferred at any point.
   days, 4-second timeout, fails silently offline, proper numeric semver
   comparison (not string comparison), 10-second auto-closing popup, never
   blocks startup. Client-side only — see "Deferred" below.
+- **Location selector: real GeoNames import verified, IANA-alias bug fixed**
+  (`geo/import-geonames.js`, `js/locationService.js`, `js/ui.js`): a real
+  GeoNames `IN.zip` (660,026 source rows) was supplied and imported
+  end-to-end — `import-geonames.js` now also self-derives admin1/admin2
+  (state/district) names directly from the dump file's own ADM1/ADM2
+  boundary rows when no separate lookup file is given (36 India states/UTs,
+  763 districts, verified). Result: "Toranagallu" now correctly resolves to
+  Torangallu, Karnataka, Ballari district, India, Asia/Kolkata — the exact
+  example from the original spec. `js/locationService.js` now loads an
+  OPTIONAL supplementary database (`geo/places-india.db`) alongside the
+  bundled worldwide `places.db` when present, merging search results from
+  both — worldwide city coverage plus full India village coverage
+  together, without replacing either. The India database itself (~97MB,
+  GeoNames CC-BY 4.0) is NOT committed to git (too close to GitHub's 100MB
+  limit) — delivered as a separate file; see geo/README.md. Also fixed a
+  real bug this surfaced: some browsers' `Intl.supportedValuesOf('timeZone')`
+  enumerate an older alias (e.g. "Asia/Calcutta") for the same zone as
+  "Asia/Kolkata" — setting a `<select>`'s value to the unlisted-but-valid
+  name silently failed, leaving the timezone field blank (which would have
+  broken the actual UTC conversion, not just the display). Fixed via a
+  shared `setIanaZoneSelectValue()` helper that adds the option if missing
+  before setting it — applied everywhere a location or saved default sets
+  an IANA zone field. 34/34 integration tests pass, including new
+  Toranagallu-specific checks (skipped gracefully when
+  `places-india.db` isn't installed).
 - **Worldwide location selector** (`geo/`, `js/locationService.js`,
   `js/locationSelector.js`): a reusable search-as-you-type location picker,
   backed by a local SQLite database (`geo/places.db`, ~34MB, ~153,000

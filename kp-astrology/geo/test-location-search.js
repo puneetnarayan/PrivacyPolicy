@@ -17,6 +17,7 @@ global.window = {
 };
 global.fetch = async (url) => {
   const filePath = path.join(__dirname, '..', url);
+  if (!fs.existsSync(filePath)) return { ok: false, status: 404 };
   const buf = fs.readFileSync(filePath);
   return { ok: true, arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) };
 };
@@ -57,6 +58,22 @@ async function run() {
     check('at least 3 distinct countries named "London"', countries.size >= 3, [...countries].join(', '));
     check('every London result has a subtitle (state/country) to distinguish it',
       results.every(r => locationSubtitle(r).length > 0));
+  }
+
+  console.log('=== Village-level test (optional supplementary DB: geo/places-india.db) ===');
+  {
+    const results = await searchPlaces('Toranagallu', 5);
+    if (fs.existsSync(path.join(__dirname, 'places-india.db'))) {
+      check('Toranagallu found via alternate name', results.some(r => r.name === 'Torangallu'), JSON.stringify(results.map(r => r.name)));
+      const match = results.find(r => r.name === 'Torangallu');
+      if (match) {
+        check('Toranagallu state is Karnataka', match.state === 'Karnataka', match.state);
+        check('Toranagallu district is Ballari', match.district === 'Ballari', match.district);
+        check('Toranagallu timezone is Asia/Kolkata', match.timezone === 'Asia/Kolkata', match.timezone);
+      }
+    } else {
+      console.log('  SKIP: geo/places-india.db not installed (optional) — Toranagallu-specific checks skipped.');
+    }
   }
 
   console.log('=== Alternate-name test ===');

@@ -24,19 +24,22 @@ const LOCATION_SELECTOR_LOGIC_TEXT = [
 // not used for the astrology calculation itself (that always uses the
 // raw geolocation coordinates directly, unrounded).
 async function reverseGeocodeNearest(lat, lon) {
-  const db = await loadPlacesDb();
+  const dbs = await loadPlacesDb(); // [places.db, ...any installed optional supplementary databases]
   const boxDeg = 1.0; // ~110km box; widened once below if nothing found
   for (const box of [boxDeg, 5, 20]) {
-    const stmt = db.prepare(`
-      SELECT id, geonames_id, name, ascii_name, alternate_names, country_code, country_name,
-        admin1_code, admin1_name, admin2_code, admin2_name, latitude, longitude, population, timezone
-      FROM places WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?
-      ORDER BY population DESC LIMIT 50
-    `);
-    stmt.bind([lat - box, lat + box, lon - box, lon + box]);
-    const rows = [];
-    while (stmt.step()) rows.push(stmt.getAsObject());
-    stmt.free();
+    const rows = dbs.flatMap(db => {
+      const stmt = db.prepare(`
+        SELECT id, geonames_id, name, ascii_name, alternate_names, country_code, country_name,
+          admin1_code, admin1_name, admin2_code, admin2_name, latitude, longitude, population, timezone
+        FROM places WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?
+        ORDER BY population DESC LIMIT 50
+      `);
+      stmt.bind([lat - box, lat + box, lon - box, lon + box]);
+      const dbRows = [];
+      while (stmt.step()) dbRows.push(stmt.getAsObject());
+      stmt.free();
+      return dbRows;
+    });
     if (rows.length) {
       const toRad = d => d * Math.PI / 180;
       const dist = r => {

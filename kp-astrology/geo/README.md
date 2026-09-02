@@ -19,9 +19,11 @@ alternate names (e.g. "Bangalore" for Bengaluru). This is enough for every
 city in this app's original test list (Mumbai, Delhi, Bengaluru, Chennai,
 Kolkata, Gorakhpur, London, New York, Paris, Zurich, Singapore, Dubai,
 Sydney, Tokyo, and duplicate-name cases like the 6 different "London"s) —
-but it does **not** include every small village. `Toranagallu` (Karnataka),
-the specific village used as this feature's original test case, is below
-this dataset's inclusion threshold.
+but it does **not** include every small village on its own. `Toranagallu`
+(Karnataka), the specific village used as this feature's original test
+case, is below this dataset's inclusion threshold — see "Optional
+supplementary database" just below for how that specific case is actually
+covered (a real GeoNames-derived India-wide database, verified end-to-end).
 
 **Attribution**: if you deploy this app with the bundled database, ODbL
 requires crediting the dr5hn/countries-states-cities-database project (and,
@@ -34,14 +36,51 @@ obligation on your own app code).
 
 **Why not the full GeoNames dataset from the start:** the sandboxed
 environment this was built in could not reach `download.geonames.org`
-(network policy). `import-geonames.js` below is the real GeoNames importer
-and is fully GeoNames-schema-compatible — it was tested against a small
-hand-built GeoNames-format sample (which correctly found "Torangallu" via
-its alternate name "Toranagallu", exactly the example from the original
-spec) — but it has not been run against an actual multi-hundred-MB GeoNames
-file. Run it yourself (below) to get complete worldwide village-level
-coverage; your own machine can very likely reach geonames.org even though
-this dev sandbox couldn't.
+directly (network policy — confirmed with `x-deny-reason: host_not_allowed`
+on a direct request). `import-geonames.js` below is the real GeoNames
+importer, fully GeoNames-schema-compatible, and HAS since been run
+end-to-end against a real GeoNames file — a genuine `IN.zip` (India,
+660,026 source rows) was supplied directly and imported successfully:
+"Torangallu" was found via its alternate name "Toranagallu" with the
+correct coordinates, `Asia/Kolkata` timezone, and — self-derived from the
+file's own administrative-boundary rows, no separate lookup file needed —
+state "Karnataka" and district "Ballari", exactly matching the original
+spec's example. That result ships as the optional `geo/places-india.db`
+described next. Full worldwide village-level coverage (not just India)
+works the same way — run `import-geonames.js` yourself against
+`allCountries.txt` or another country's `.zip`, either downloaded on a
+machine that can reach geonames.org, or handed to Claude directly to run.
+
+## Optional supplementary database (e.g. full India village coverage)
+
+`js/locationService.js` loads `places.db` (required) plus any of a small
+list of OPTIONAL supplementary database files it finds — currently just
+`geo/places-india.db`. If that file exists, it's loaded in addition to
+(not instead of) `places.db`, and searches run against both and merge the
+results — so you get worldwide city coverage AND full India village
+coverage at once, without needing a single combined database.
+
+**A real `places-india.db` (built from the actual GeoNames `IN.zip` — the
+same import verified against this app's own Toranagallu test case, with
+state/district names self-derived from the file's own admin boundary
+records) is NOT committed to this git repo** — at ~97MB it's too close to
+GitHub's 100MB hard file-size limit to be good practice to check in. It was
+handed to you directly (as a file, alongside the code changes) the first
+time this was built. To use it: drop it in as `geo/places-india.db` next to
+`places.db` — the app picks it up automatically, no code changes needed. If
+you don't have it, `import-geonames.js --main IN.txt --out
+geo/places-india.db` (below) rebuilds it from your own downloaded
+`IN.zip` in under a minute.
+
+The same mechanism works for any other single-country deep import you want
+— just add its path to `OPTIONAL_SUPPLEMENTARY_DB_PATHS` in
+`js/locationService.js`.
+
+**Licensing note**: unlike the bundled `places.db` (ODbL), `places-india.db`
+is built directly from GeoNames data, which is
+[CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) — attribution to
+geonames.org is required if you deploy it, but there's no share-alike
+obligation on your own app code.
 
 ## Rebuilding with full GeoNames data (recommended for production use)
 

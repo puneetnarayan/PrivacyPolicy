@@ -54,7 +54,13 @@ function loadDefaultBirthDetails() {
   // (from sample-birth-details.csv) fill in anything never saved yet.
   const details = { ...DEFAULT_BIRTH_DETAILS, ...saved };
   BIRTH_DETAIL_PERSIST_IDS.forEach(id => {
-    if (details[id] !== undefined && details[id] !== '') el(id).value = details[id];
+    if (details[id] === undefined || details[id] === '') return;
+    // ianaZone needs the option-exists check (see setIanaZoneSelectValue) —
+    // some browsers' Intl.supportedValuesOf('timeZone') enumerate an older
+    // alias (e.g. "Asia/Calcutta") for the same real zone as "Asia/Kolkata",
+    // so a plain .value= assignment can silently fail and leave it blank.
+    if (id === 'ianaZone') setIanaZoneSelectValue(el(id), details[id]);
+    else el(id).value = details[id];
   });
   toggleTimezoneModeInputs();
 }
@@ -1854,6 +1860,23 @@ function renderEventPromiseTableHtml(title, table) {
 let nativeLocationSelector = null;
 let astrologerLocationSelector = null;
 
+// Sets a <select> of IANA timezone options to `zone`, adding it as an
+// option first if it isn't already listed. Needed because
+// Intl.supportedValuesOf('timeZone') can enumerate an older alias for the
+// same zone (e.g. this app has seen a browser list "Asia/Calcutta" but not
+// "Asia/Kolkata" — both valid, same real timezone, Intl.DateTimeFormat
+// accepts either) — without this, setting .value to an unlisted-but-valid
+// zone silently fails and leaves the field blank, which would break the
+// actual local-to-UTC conversion, not just the display.
+function setIanaZoneSelectValue(selectEl, zone) {
+  if (!selectEl.querySelector(`option[value="${zone}"]`)) {
+    const opt = document.createElement('option');
+    opt.value = zone; opt.textContent = zone;
+    selectEl.appendChild(opt);
+  }
+  selectEl.value = zone;
+}
+
 function initLocationSelectors() {
   preloadLocationDb();
   el('locationServiceLogicOutput').innerHTML = renderLogicDetails(LOCATION_SERVICE_LOGIC_TEXT) + renderLogicDetails(LOCATION_SELECTOR_LOGIC_TEXT);
@@ -1865,7 +1888,7 @@ function initLocationSelectors() {
       el('birthLon').value = loc.longitude;
       if (loc.timezone) {
         el('timezoneMode').value = 'iana';
-        el('ianaZone').value = loc.timezone;
+        setIanaZoneSelectValue(el('ianaZone'), loc.timezone);
         toggleTimezoneModeInputs();
       }
       BIRTH_INPUT_IDS.forEach(id => {
@@ -1884,9 +1907,9 @@ function initLocationSelectors() {
       el('astroLon').value = loc.longitude;
       el('horaryLat').value = loc.latitude;
       el('horaryLon').value = loc.longitude;
-      if (loc.timezone && el('horaryIanaZone').querySelector(`option[value="${loc.timezone}"]`)) {
+      if (loc.timezone) {
         el('horaryTimezoneMode').value = 'iana';
-        el('horaryIanaZone').value = loc.timezone;
+        setIanaZoneSelectValue(el('horaryIanaZone'), loc.timezone);
         el('horaryIanaZoneLabel').hidden = false;
         el('horaryUtcOffsetLabel').hidden = true;
       }

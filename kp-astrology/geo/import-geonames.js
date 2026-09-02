@@ -88,7 +88,29 @@ async function main() {
     const cols = line.split('\t');
     if (cols[0] && cols[4]) countryNames.set(cols[0], cols[4]);
   });
-  console.log(`Loaded ${admin1Count} admin1 codes, ${admin2Count} admin2 codes, ${countryCount} country names.`);
+  console.log(`Loaded ${admin1Count} admin1 codes, ${admin2Count} admin2 codes, ${countryCount} country names (from dedicated lookup files, if given).`);
+
+  // Self-derive admin1/admin2 names directly from the main dump's own ADM1/
+  // ADM2 boundary rows (feature_class 'A') for any code not already covered
+  // by --admin1/--admin2 above — no separate lookup file download required.
+  // (GeoNames' own admin1CodesASCII.txt/admin2Codes.txt, if supplied, still
+  // take priority since they're read first.)
+  const cleanAdminName = s => String(s || '').replace(/^(State of|Union Territory of|National Capital Territory of)\s+/i, '').trim();
+  let derivedAdmin1 = 0, derivedAdmin2 = 0;
+  await readLines(args.main, line => {
+    const c = line.split('\t');
+    if (c.length < 18) return;
+    const [, name, , , , , featureClass, featureCode, countryCode, , admin1Code, admin2Code] = c;
+    if (featureClass !== 'A') return;
+    if (featureCode === 'ADM1' && admin1Code) {
+      const key = `${countryCode}.${admin1Code}`;
+      if (!admin1Names.has(key)) { admin1Names.set(key, cleanAdminName(name)); derivedAdmin1++; }
+    } else if (featureCode === 'ADM2' && admin1Code && admin2Code) {
+      const key = `${countryCode}.${admin1Code}.${admin2Code}`;
+      if (!admin2Names.has(key)) { admin2Names.set(key, cleanAdminName(name)); derivedAdmin2++; }
+    }
+  });
+  console.log(`Self-derived ${derivedAdmin1} admin1 names and ${derivedAdmin2} admin2 names from the main file's own ADM1/ADM2 rows.`);
 
   const SQL = await initSqlJs({ locateFile: file => path.join(path.dirname(require.resolve('sql.js')), file) });
   const db = new SQL.Database();
@@ -150,9 +172,13 @@ async function main() {
     const admin1Key = `${countryCode}.${admin1Code}`;
     const admin2Key = `${countryCode}.${admin1Code}.${admin2Code}`;
     const id = nextId++;
+    // GeoNames' own alternatenames column is comma-separated; normalize to
+    // '|' so it matches the separator used schema-wide (and so an alt name
+    // that itself happens to contain a comma isn't split incorrectly).
+    const alternateNames = (alternatenames || '').split(',').map(s => s.trim()).filter(Boolean).join('|');
 
     insertStmt.run([
-      id, Number(geonameid) || null, name, ascii, alternatenames || '',
+      id, Number(geonameid) || null, name, ascii, alternateNames,
       countryCode || null, countryNames.get(countryCode) || null,
       admin1Code || null, admin1Names.get(admin1Key) || null,
       admin2Code || null, admin2Names.get(admin2Key) || null,

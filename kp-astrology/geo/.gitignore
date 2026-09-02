@@ -1,0 +1,7 @@
+# Optional supplementary location databases (e.g. places-india.db) are
+# deliberately NOT committed — too large for comfortable git history (close
+# to GitHub's 100MB hard limit). Built via import-geonames.js from your own
+# downloaded GeoNames files; see README.md. Delivered as a separate file
+# alongside code changes rather than checked in.
+places-india.db
+node_modules/
