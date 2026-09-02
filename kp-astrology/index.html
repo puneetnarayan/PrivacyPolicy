@@ -18,6 +18,9 @@
   .cell-updated { background-color: #ccf5cc !important; }
   .birth-input-pending { background-color: #ffd6d6; }
   .birth-input-submitted { background-color: #ffc266; }
+  .birth-input-reset { background-color: #fff9b0 !important; }
+  .field-ok { background-color: #ccf5cc !important; }
+  .field-missing { background-color: #ffd6d6 !important; }
   .rp-live-container { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
   .rp-box { border: 2px solid #888; border-radius: 8px; padding: 12px 16px; min-width: 280px; flex: 1 1 320px; }
   .rp-box h3 { margin-top: 0; }
@@ -90,27 +93,13 @@
 <div class="controls">
   <button id="loadSampleBtn">Load Blank Template (9 planets / 12 cusps)</button>
   <label>Upload data (Excel .xlsx, JSON, or CSV): <input type="file" id="uploadInput" accept=".xlsx,.json,.csv"></label>
+  <button id="defaultValuesBtn">Default Values</button>
+  <button id="resetAllBtn">Reset All</button>
 </div>
 <p id="statusMsg"></p>
 
-<h2>Planets</h2>
-<div class="controls"><button id="addPlanetRowBtn">+ Add Planet Row</button></div>
-<div id="planetTable"></div>
-
-<h2>House Cusps</h2>
-<div class="controls"><button id="addCuspRowBtn">+ Add Cusp Row</button></div>
-<div id="cuspTable"></div>
-
-<h2>Dasha &amp; Ruling Planet Inputs</h2>
-<fieldset>
-  <label>Moon Longitude (0-360°): <input type="text" id="moonLongitude" placeholder="e.g. 123.45"></label>
-  <span id="moonLongitudeDms" style="font-size:0.85em;color:#666;"></span><br><br>
-  <label>Birth Date/Time (UTC): <input type="datetime-local" id="birthDateTime"></label><br><br>
-  <label>Ruling Planets Moment (defaults to now): <input type="datetime-local" id="rpMoment"></label>
-</fieldset>
-
 <h2>Auto-Generate Full Chart from Birth Details (offline)</h2>
-<p>Give date/time/place of birth — this fills the entire Planets and Cusps tables below automatically (exact longitudes, sign, nakshatra, star/sub/sub-sub lord, house placement, retrograde, and Placidus cusps), entirely offline. Everything it fills in stays editable afterward — review it before relying on it.</p>
+<p>Give date/time/place of birth — this fills the entire Planets and Cusps tables below automatically (exact longitudes, sign, nakshatra, star/sub/sub-sub lord, house placement, retrograde, and Placidus cusps), entirely offline, and runs every other report in this app for the same data. Everything it fills in stays editable afterward — review it before relying on it.</p>
 <fieldset>
   <label>Birth Date: <input type="date" id="birthLocalDate"></label>
   <label>Birth Time (local clock time at birth place): <input type="time" id="birthLocalTime" step="60"></label><br><br>
@@ -127,6 +116,22 @@
   <button id="generateChartBtn">Generate Full Chart (Offline)</button>
 </fieldset>
 <div id="autoChartOutput" class="output-box pastel-peach"></div>
+
+<h2>Planets</h2>
+<div class="controls"><button id="addPlanetRowBtn">+ Add Planet Row</button></div>
+<div id="planetTable"></div>
+
+<h2>House Cusps</h2>
+<div class="controls"><button id="addCuspRowBtn">+ Add Cusp Row</button></div>
+<div id="cuspTable"></div>
+
+<h2>Dasha &amp; Ruling Planet Inputs</h2>
+<fieldset>
+  <label>Moon Longitude (0-360°): <input type="text" id="moonLongitude" placeholder="e.g. 123.45"></label>
+  <span id="moonLongitudeDms" style="font-size:0.85em;color:#666;"></span><br><br>
+  <label>Birth Date/Time (UTC): <input type="datetime-local" id="birthDateTime"></label><br><br>
+  <label>Ruling Planets Moment (defaults to now): <input type="datetime-local" id="rpMoment"></label>
+</fieldset>
 
 <h2>Ephemeris (offline, no internet used)</h2>
 <p>If you already have cusps from elsewhere and just want exact planet longitudes filled in (instead of a full auto-generated chart above), use this. Enables combustion, conjunction, and aspect checks below.</p>
@@ -299,8 +304,8 @@
 <div id="vedicChartsLogicOutput"></div>
 <fieldset>
   <legend>Layout</legend>
-  <label><input type="radio" name="chartStyle" value="south" checked> South Indian (fixed sign grid)</label>
-  <label><input type="radio" name="chartStyle" value="north"> North Indian (diamond, fixed house positions)</label>
+  <label><input type="radio" name="chartStyle" value="south"> South Indian (fixed sign grid)</label>
+  <label><input type="radio" name="chartStyle" value="north" checked> North Indian (diamond, fixed house positions)</label>
   <button id="refreshChartsBtn">Refresh Charts</button>
 </fieldset>
 <div class="vedic-chart-container">

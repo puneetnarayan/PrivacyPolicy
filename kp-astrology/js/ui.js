@@ -27,8 +27,8 @@ const BIRTH_DETAIL_PERSIST_IDS = ['birthLocalDate', 'birthLocalTime', 'birthLat'
 // localStorage — once you've entered your own details — always takes
 // priority over this; this only fills the fields on a first-ever run.
 const DEFAULT_BIRTH_DETAILS = {
-  birthLocalDate: '1990-06-15', birthLocalTime: '10:30',
-  birthLat: '15.170375', birthLon: '76.633721',
+  birthLocalDate: '1970-06-02', birthLocalTime: '18:45',
+  birthLat: '26.7658', birthLon: '83.3649',
   timezoneMode: 'offset', utcOffset: '+5:30', ianaZone: 'Asia/Kolkata'
 };
 
@@ -82,6 +82,8 @@ function init() {
   el('computeEphemerisBtn').addEventListener('click', computeEphemerisLongitudes);
   el('computeTransitBtn').addEventListener('click', computeTransitSnapshot);
   el('generateChartBtn').addEventListener('click', generateFullChart);
+  el('defaultValuesBtn').addEventListener('click', loadDefaultValuesAndGenerate);
+  el('resetAllBtn').addEventListener('click', resetAllData);
   el('startLiveRpBtn').addEventListener('click', startLiveRulingPlanets);
   el('startDynamicTransitBtn').addEventListener('click', startDynamicTransitTable);
   initRectifyTab();
@@ -101,10 +103,12 @@ function init() {
   BIRTH_INPUT_IDS.forEach(id => {
     el(id).classList.add('birth-input-pending');
     el(id).addEventListener('input', () => {
-      el(id).classList.remove('birth-input-submitted');
+      el(id).classList.remove('birth-input-submitted', 'birth-input-reset');
       el(id).classList.add('birth-input-pending');
     });
   });
+  el('utcOffset').addEventListener('input', () => el('utcOffset').classList.remove('birth-input-reset'));
+  el('uploadInput').addEventListener('change', () => el('uploadInput').classList.remove('birth-input-reset'));
   BIRTH_DETAIL_PERSIST_IDS.forEach(id => {
     el(id).addEventListener('change', saveDefaultBirthDetails);
   });
@@ -312,9 +316,21 @@ function populateIanaZoneOptions() {
   if (guessed && zones.includes(guessed)) select.value = guessed;
 }
 
+// Signature of the birth-detail inputs at the moment of the last successful
+// "Generate Full Chart" — lets the button skip re-generating/re-computing
+// everything when nothing has actually changed since then.
+let lastGeneratedSignature = null;
+function birthDetailSignature() {
+  return BIRTH_DETAIL_PERSIST_IDS.map(id => el(id).value).join('|');
+}
+
 // Reads the local birth date/time + place + timezone, converts to UTC, and
 // generates a full chart (planets + cusps) via the offline ephemeris and
-// Placidus cusp calculation — filling both tables in one step.
+// Placidus cusp calculation — filling both tables — then cascades into
+// every other report in the app (Compute KP Analysis, i.e. runComputations())
+// for the same data, so nothing needs a separate button press. Skips all of
+// this and just says so if the birth details haven't changed since the last
+// successful generation.
 function generateFullChart() {
   const dateStr = el('birthLocalDate').value;
   const timeStr = el('birthLocalTime').value;
@@ -323,6 +339,12 @@ function generateFullChart() {
 
   if (!dateStr || !timeStr || isNaN(lat) || isNaN(lon)) {
     el('statusMsg').textContent = 'Enter birth date, time, latitude, and longitude first.';
+    return;
+  }
+
+  const signature = birthDetailSignature();
+  if (signature === lastGeneratedSignature) {
+    el('statusMsg').textContent = 'No change since the last generation — results below are already up to date.';
     return;
   }
 
@@ -373,8 +395,65 @@ function generateFullChart() {
   });
 
   el('autoChartOutput').innerHTML = renderLogicDetails(AUTO_CHART_LOGIC_TEXT) + renderLogicDetails(TIMEZONE_LOGIC_TEXT) + renderLogicDetails(PLACIDUS_LOGIC_TEXT) + renderLogicDetails(KP_SUBLORD_LOGIC_TEXT) +
-    `<p>Generated chart for birth UTC instant: <strong>${birthUtc.toISOString()}</strong>. Review the Planets and Cusps tables above, then run "Compute KP Analysis" below.</p>`;
-  el('statusMsg').textContent = 'Full chart generated. Review Planets/Cusps tables, then click "Compute KP Analysis".';
+    `<p>Generated chart for birth UTC instant: <strong>${birthUtc.toISOString()}</strong>. Review the Planets and Cusps tables above — every report below has already been (re)computed for this data.</p>`;
+
+  lastGeneratedSignature = signature;
+  runComputations();
+  el('statusMsg').textContent = 'Full chart generated and all reports computed. Review Planets/Cusps tables — everything stays editable.';
+}
+
+// "Default Values": clears whatever is currently entered/uploaded and
+// replaces it with this app's baked-in default birth details, then
+// generates and computes everything for them — a one-click way back to a
+// known-good starting point.
+function loadDefaultValuesAndGenerate() {
+  el('uploadInput').value = '';
+  state.planets = [];
+  state.cusps = [];
+  BIRTH_DETAIL_PERSIST_IDS.forEach(id => { el(id).value = DEFAULT_BIRTH_DETAILS[id]; });
+  toggleTimezoneModeInputs();
+  saveDefaultBirthDetails();
+  lastGeneratedSignature = null; // force generateFullChart() to actually run, even if this matches the last-generated signature
+  generateFullChart();
+  el('statusMsg').textContent = 'Loaded default birth details and computed all reports.';
+}
+
+// "Reset All": blanks everything — birth fields, Planets/Cusps tables, the
+// file chooser, and every computed report — and marks the fields that now
+// need manual entry in yellow, distinct from the pending/submitted colors
+// used elsewhere. Nothing is auto-filled; this is a deliberate blank slate.
+function resetAllData() {
+  el('uploadInput').value = '';
+  el('uploadInput').classList.add('birth-input-reset');
+
+  state.planets = [];
+  state.cusps = [];
+  state.updatedPlanetCells = new Set();
+  state.updatedCuspCells = new Set();
+  renderPlanetTable();
+  renderCuspTable();
+
+  BIRTH_INPUT_IDS.forEach(id => {
+    el(id).value = '';
+    el(id).classList.remove('birth-input-pending', 'birth-input-submitted');
+    el(id).classList.add('birth-input-reset');
+  });
+  el('utcOffset').value = '';
+  el('utcOffset').classList.add('birth-input-reset');
+  el('moonLongitude').value = '';
+  el('birthDateTime').value = '';
+  el('moonLongitude').classList.remove('cell-updated');
+  el('birthDateTime').classList.remove('cell-updated');
+  updateMoonLongitudeDms();
+
+  ['autoChartOutput', 'ephemerisOutput', 'planetaryRelationsOutput', 'transitOutput',
+    'rulingPlanetsOutput', 'significatorsOutput', 'dashaOutput', 'lifeTopicsOutput',
+    'd1ChartBox', 'd9ChartBox', 'kpChartBox'].forEach(id => { el(id).innerHTML = ''; });
+  el('settingsUsedBadge').textContent = '';
+  lastResults = { significators: null, dasha: null };
+  lastGeneratedSignature = null;
+
+  el('statusMsg').textContent = 'All data reset. Fields shown in yellow need to be filled in manually before generating a chart.';
 }
 
 // Fills the Planets table's longitude column (and sign, if blank) from the
@@ -497,11 +576,14 @@ function handleUpload(e) {
       if (data.birthDateTime) { el('birthDateTime').value = data.birthDateTime; }
 
       const warnings = [...canonicalizeRecords(state.planets), ...canonicalizeRecords(state.cusps)];
+      state.updatedPlanetCells = new Set();
+      state.updatedCuspCells = new Set();
       renderPlanetTable();
       renderCuspTable();
+      runComputations();
       el('statusMsg').textContent = warnings.length
-        ? `Loaded data from ${file.name}. Warnings: ${warnings.join('; ')}`
-        : 'Loaded data from ' + file.name;
+        ? `Loaded data from ${file.name} and computed all reports. Warnings: ${warnings.join('; ')}`
+        : `Loaded data from ${file.name} and computed all reports.`;
     } catch (err) {
       el('statusMsg').textContent = 'Failed to parse file: ' + err.message;
     }
@@ -613,17 +695,36 @@ function renderCuspTable() {
 // column appended right after it (e.g. "longitude" -> "Position (DMS)").
 const DMS_DISPLAY_COLS = { longitude: 'Position (DMS)' };
 
+// Fields without which a row can't meaningfully participate in KP
+// interpretation (significators/dasha/ruling-planets all key off these) —
+// colored light red when blank, light green when filled, live-updated as
+// you type. Non-essential columns (nakshatra, pada, sub-sub lord,
+// retrograde, longitude) are still shown but not flagged either way.
+const ESSENTIAL_FIELDS = {
+  planets: ['name', 'sign', 'house', 'starLord', 'subLord'],
+  cusps: ['house', 'sign', 'starLord', 'subLord']
+};
+
+function essentialFieldClass(kind, col, value) {
+  if (!ESSENTIAL_FIELDS[kind].includes(col)) return '';
+  return (value !== undefined && value !== null && String(value).trim() !== '') ? ' field-ok' : ' field-missing';
+}
+
 function renderEditableTable(kind, rows, cols, updatedCells) {
   const headerCells = cols.flatMap(c => DMS_DISPLAY_COLS[c] ? [c, DMS_DISPLAY_COLS[c]] : [c]);
   let html = '<table><thead><tr>' + headerCells.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   rows.forEach((row, i) => {
     html += '<tr>' + cols.map(c => {
-      const updatedClass = updatedCells && updatedCells.has(i + ':' + c) ? ' class="cell-updated"' : '';
+      const classes = [
+        updatedCells && updatedCells.has(i + ':' + c) ? 'cell-updated' : '',
+        essentialFieldClass(kind, c, row[c]).trim()
+      ].filter(Boolean).join(' ');
+      const classAttr = classes ? ` class="${classes}"` : '';
       let cell;
       if (c === 'retrograde') {
-        cell = `<td><input type="checkbox" data-row="${i}" data-col="${c}"${updatedClass} ${row[c] ? 'checked' : ''}></td>`;
+        cell = `<td><input type="checkbox" data-row="${i}" data-col="${c}"${classAttr} ${row[c] ? 'checked' : ''}></td>`;
       } else {
-        cell = `<td><input type="text" data-row="${i}" data-col="${c}"${updatedClass} value="${row[c] ?? ''}"></td>`;
+        cell = `<td><input type="text" data-row="${i}" data-col="${c}"${classAttr} value="${row[c] ?? ''}"></td>`;
       }
       if (DMS_DISPLAY_COLS[c]) {
         cell += `<td class="dms-cell" data-dms-for="${i}:${c}">${formatDegMinSec(row[c])}</td>`;
@@ -648,7 +749,9 @@ function attachTableListeners(tableId, kind, cols) {
       state[kind][row][col] = value;
       if (col !== 'house' && input.type !== 'checkbox') input.value = value;
       updatedCells.delete(row + ':' + col);
-      input.classList.remove('cell-updated');
+      input.classList.remove('cell-updated', 'field-ok', 'field-missing');
+      const essentialClass = essentialFieldClass(kind, col, value).trim();
+      if (essentialClass) input.classList.add(essentialClass);
       if (DMS_DISPLAY_COLS[col]) {
         const dmsCell = el(tableId).querySelector(`[data-dms-for="${row}:${col}"]`);
         if (dmsCell) dmsCell.textContent = formatDegMinSec(value);

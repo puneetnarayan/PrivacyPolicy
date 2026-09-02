@@ -74,6 +74,24 @@ clear what's real vs. deferred at any point.
   days, 4-second timeout, fails silently offline, proper numeric semver
   comparison (not string comparison), 10-second auto-closing popup, never
   blocks startup. Client-side only — see "Deferred" below.
+- **Chart & Analysis tab UI overhaul**: the Auto-Generate Full Chart
+  section now sits at the top, right below "Choose File" (previously
+  buried below the Planets/Cusps tables). New "Default Values" (reloads
+  the baked-in default birth details and regenerates everything) and
+  "Reset All" (blanks all data, marks every field needing manual entry in
+  yellow) buttons next to Choose File. "Generate Full Chart" now cascades
+  into every other report (significators, ruling planets, dasha, life
+  topics, charts) in one click instead of requiring a separate "Compute KP
+  Analysis" press — and skips re-computing entirely if the birth details
+  haven't changed since the last generation. Uploading a CSV/JSON/Excel
+  file populates the Planets/Cusps tables immediately (unchanged) and now
+  also cascades into every report the same way, with each essential field
+  (name/sign/house/star lord/sub lord) colored light green when filled or
+  light red when missing, live-updated as you edit. Default chart style in
+  the Charts tab is now North Indian. Default birth details updated to
+  1970-06-02 18:45, 26.7658°N 83.3649°E. (Live Ruling Planets and the Live
+  Transit Table already auto-started on page load using their own default
+  coordinates before this change — confirmed still working, not new.)
 - **Cuspal Interlinks (Bhaskaran Paddhatee)** (`js/cuspalInterlinks.js`,
   "Cuspal Interlinks" tab): for chosen house cusps, walks the Sub Lord ->
   (that planet's own) Star Lord -> (that planet's own) Sub Lord chain,
