@@ -32,7 +32,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const initSqlJs = require('sql.js');
+const initSqlJs = require('fts5-sql-bundle').initSqlJs;
 
 function parseArgs(argv) {
   const args = {};
@@ -112,7 +112,7 @@ async function main() {
   });
   console.log(`Self-derived ${derivedAdmin1} admin1 names and ${derivedAdmin2} admin2 names from the main file's own ADM1/ADM2 rows.`);
 
-  const SQL = await initSqlJs({ locateFile: file => path.join(path.dirname(require.resolve('sql.js')), file) });
+  const SQL = await initSqlJs({ locateFile: file => path.join(path.dirname(require.resolve('fts5-sql-bundle')), file) });
   const db = new SQL.Database();
   db.run(`
     CREATE TABLE places (
@@ -135,12 +135,21 @@ async function main() {
       timezone TEXT,
       search_name TEXT NOT NULL
     );
-    CREATE INDEX idx_places_name ON places(name);
     CREATE INDEX idx_places_ascii_name ON places(ascii_name);
     CREATE INDEX idx_places_search_name ON places(search_name);
     CREATE INDEX idx_places_country ON places(country_code);
-    CREATE INDEX idx_places_geonames_id ON places(geonames_id);
-    CREATE INDEX idx_places_population ON places(population);
+
+    -- FTS5 indexes ONLY alternate_names, not ascii_name: leading-prefix
+    -- search on ascii_name is already fast via idx_places_search_name's
+    -- B-tree (see locationService.js's Phase 1); FTS5's actual job is fast
+    -- token/prefix search on alternate_names (spelling variants,
+    -- transliterations), which a B-tree prefix index can't do since the
+    -- match can be on ANY of several pipe-separated alt names, not just the
+    -- first. Skipping ascii_name here roughly halves the FTS5 index's
+    -- storage cost on a large single-country import (proportionally larger
+    -- than the bundled worldwide places.db, which keeps both columns
+    -- indexed since its FTS5 overhead is small in absolute terms).
+    CREATE VIRTUAL TABLE places_fts USING fts5(alternate_names, content='places', content_rowid='id');
   `);
   const insertStmt = db.prepare(`
     INSERT INTO places (id, geonames_id, name, ascii_name, alternate_names, country_code, country_name,
@@ -190,6 +199,9 @@ async function main() {
   });
   db.run('COMMIT');
   insertStmt.free();
+
+  db.run(`INSERT INTO places_fts(rowid, alternate_names) SELECT id, alternate_names FROM places WHERE alternate_names != ''`);
+  db.run(`VACUUM`);
 
   const duplicateNames = [...seenNames.values()].filter(n => n > 1).length;
   const data = db.export();

@@ -3,6 +3,6 @@
   "private": true,
   "description": "GeoNames -> places.db import utility for the KP Astrology app's location selector. Run 'npm install' in this folder once, then see README.md.",
   "dependencies": {
-    "sql.js": "^1.10.0"
+    "fts5-sql-bundle": "^1.0.2"
   }
 }

@@ -150,16 +150,21 @@ CREATE INDEX idx_places_geonames_id ON places(geonames_id);
 CREATE INDEX idx_places_population ON places(population);
 ```
 
-No FTS5 virtual table: the sql.js WASM build vendored into `js/sqljs/`
-(from the npm `sql.js` package) does not have the FTS5 extension compiled
-in. `js/locationService.js` instead uses a two-phase strategy — an indexed
-prefix match first (near-instant even across 150,000+ rows), falling back
-to a broader "contains" scan only when the prefix match doesn't find
-enough results — which comfortably meets the <100ms target at this data
-size. If you rebuild against full `allCountries.txt` (millions of rows)
-and searches start feeling slow, look into an FTS5-enabled SQLite WASM
-build (e.g. `@sqlite.org/sqlite-wasm`, the official build) as a drop-in
-replacement for `js/sqljs/`.
+**FTS5**: the sql.js WASM build vendored into `js/sqljs/` is
+[`fts5-sql-bundle`](https://www.npmjs.com/package/fts5-sql-bundle) — a
+custom sql.js build with the FTS5 extension compiled in (the plain `sql.js`
+npm package does NOT have FTS5, which this app used at first — searches
+against the ~558,000-row India database took 400-600ms with a plain LIKE
+'%...%' scan; switching to FTS5 for that fallback path brought it under
+10ms). `js/locationService.js` uses a two-phase strategy: Phase 1 is an
+indexed prefix match on `search_name` (near-instant, even across 500,000+
+rows); Phase 2, only run when Phase 1 doesn't find enough results, queries
+each database's `places_fts` virtual table (`CREATE VIRTUAL TABLE
+places_fts USING fts5(alternate_names, content='places',
+content_rowid='id')` — see the two build scripts) via `MATCH` with a
+phrase-prefix query, instead of an unindexed table scan. If a database
+predates this (no `places_fts` table), Phase 2 falls back to the old LIKE
+scan automatically rather than erroring.
 
 ## How timezone is determined
 

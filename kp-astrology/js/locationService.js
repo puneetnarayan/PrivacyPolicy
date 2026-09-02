@@ -109,6 +109,10 @@ function locationCoordsText(loc) {
 
 const SELECT_COLUMNS = `id, geonames_id, name, ascii_name, alternate_names, country_code, country_name,
   admin1_code, admin1_name, admin2_code, admin2_name, latitude, longitude, population, timezone`;
+// Same columns, qualified with "p." — needed when joining places (aliased
+// p) against places_fts, since both tables have an alternate_names column
+// and an unqualified reference is ambiguous.
+const SELECT_COLUMNS_QUALIFIED = SELECT_COLUMNS.split(',').map(c => 'p.' + c.trim()).join(', ');
 
 function runQuery(db, sql, params) {
   const stmt = db.prepare(sql);
@@ -135,14 +139,38 @@ function searchOneDbPrefix(db, dbIndex, q, limit) {
   return rows;
 }
 
-// Phase 2 only: the broader, slower contains-scan (name OR alternate names
-// contain the query anywhere) against ONE database.
+// Escapes a search term for use as an FTS5 phrase-prefix query — wraps it
+// in double quotes (doubling any internal ones, per FTS5 string-literal
+// rules) with a trailing '*' for prefix matching on the last token. This
+// makes "toran" match a token like "toranagallu" via the FTS5 index,
+// instead of a full unindexed LIKE '%toran%' table scan.
+function ftsPrefixQuery(q) {
+  return `"${q.replace(/"/g, '""')}"*`;
+}
+
+// Phase 2 only: broader token/substring search against ONE database's
+// places_fts index (built by both build scripts — see geo/README.md) —
+// FTS5-indexed, so still fast even on a 500,000+ row single-country
+// import, unlike a full LIKE '%...%' table scan. Falls back to the older
+// (slower) LIKE-based scan if a database doesn't have places_fts at all
+// (e.g. one built before FTS5 support was added) — treated as a normal,
+// optional degradation, not an error.
 function searchOneDbContains(db, dbIndex, q, limit) {
-  const rows = runQuery(db, `
-    SELECT ${SELECT_COLUMNS} FROM places
-    WHERE (search_name LIKE ? OR lower(alternate_names) LIKE ?)
-    ORDER BY population DESC LIMIT ?
-  `, ['%' + q + '%', '%' + q + '%', limit * 5]);
+  let rows;
+  try {
+    rows = runQuery(db, `
+      SELECT ${SELECT_COLUMNS_QUALIFIED} FROM places p JOIN places_fts f ON f.rowid = p.id
+      WHERE places_fts MATCH ?
+      ORDER BY p.population DESC LIMIT ?
+    `, [ftsPrefixQuery(q), limit * 5]);
+  } catch (err) {
+    // No places_fts table (older database) — fall back to a plain scan.
+    rows = runQuery(db, `
+      SELECT ${SELECT_COLUMNS} FROM places
+      WHERE (search_name LIKE ? OR lower(alternate_names) LIKE ?)
+      ORDER BY population DESC LIMIT ?
+    `, ['%' + q + '%', '%' + q + '%', limit * 5]);
+  }
   rows.forEach(r => { r._dbIndex = dbIndex; });
   return rows;
 }

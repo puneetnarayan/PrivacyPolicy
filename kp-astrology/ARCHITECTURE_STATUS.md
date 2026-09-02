@@ -74,6 +74,30 @@ clear what's real vs. deferred at any point.
   days, 4-second timeout, fails silently offline, proper numeric semver
   comparison (not string comparison), 10-second auto-closing popup, never
   blocks startup. Client-side only — see "Deferred" below.
+- **Location search: switched to an FTS5-enabled SQLite WASM build,
+  fixing a real ~500ms slowdown** (`js/sqljs/`, `js/locationService.js`,
+  `geo/build-places-db-from-dr5hn.js`, `geo/import-geonames.js`): the
+  vendored sql.js WASM build lacked the FTS5 extension, so the "contains"
+  fallback search (needed for e.g. Toranagallu, findable only via its
+  alternate name, not a name prefix) ran an unindexed LIKE '%...%' scan —
+  fine on the small worldwide database, but 400-600ms against the
+  ~558,000-row India database, measured directly after the previous
+  optimization (checking combined results across databases before falling
+  back) only partly helped. Switched `js/sqljs/` to
+  [`fts5-sql-bundle`](https://www.npmjs.com/package/fts5-sql-bundle) (a
+  drop-in sql.js build with FTS5 compiled in) and added a `places_fts`
+  virtual table (indexing `alternate_names`) to both build scripts — the
+  same fallback search is now consistently under 10ms. Also fixed a real
+  bug found while wiring this in: the JOIN query's column list was
+  ambiguous (`alternate_names` exists in both the `places` table and
+  `places_fts`), which silently threw and fell back to the old slow path
+  every time — masking the fix until qualified column references were
+  added. `places-india.db` rebuilt at 97.7MB (under GitHub's 100MB limit)
+  by indexing only `alternate_names` in FTS5, not `ascii_name` (already
+  covered by the existing B-tree prefix index) — halves the India
+  database's FTS5 overhead; the smaller bundled `places.db` keeps both
+  columns indexed since its overhead is small in absolute terms. 34/34
+  tests still pass; verified in-browser with real per-query timings.
 - **Location selector: two more real bugs fixed, placeholder file added**
   (`js/locationSelector.js`, `js/locationService.js`, `geo/places-india.db`):
   (1) A corrupt/placeholder database file at `geo/places-india.db` (e.g.

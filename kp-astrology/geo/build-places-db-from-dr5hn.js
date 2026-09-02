@@ -21,7 +21,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const initSqlJs = require('sql.js');
+const initSqlJs = require('fts5-sql-bundle').initSqlJs;
 
 function stripDiacritics(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -43,7 +43,7 @@ async function main() {
 
   console.log(`Source records: ${cities.length} cities, ${countries.length} countries, ${states.length} states.`);
 
-  const SQL = await initSqlJs({ locateFile: file => path.join(path.dirname(require.resolve('sql.js')), file) });
+  const SQL = await initSqlJs({ locateFile: file => path.join(path.dirname(require.resolve('fts5-sql-bundle')), file) });
   const db = new SQL.Database();
 
   db.run(`
@@ -73,6 +73,8 @@ async function main() {
     CREATE INDEX idx_places_country ON places(country_code);
     CREATE INDEX idx_places_geonames_id ON places(geonames_id);
     CREATE INDEX idx_places_population ON places(population);
+
+    CREATE VIRTUAL TABLE places_fts USING fts5(ascii_name, alternate_names, content='places', content_rowid='id');
   `);
 
   const insertStmt = db.prepare(`
@@ -115,6 +117,8 @@ async function main() {
   });
   db.run('COMMIT');
   insertStmt.free();
+
+  db.run(`INSERT INTO places_fts(rowid, ascii_name, alternate_names) SELECT id, ascii_name, alternate_names FROM places`);
 
   const data = db.export();
   fs.writeFileSync(outPath, Buffer.from(data));

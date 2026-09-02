@@ -8,12 +8,12 @@
 
 const fs = require('fs');
 const path = require('path');
-const initSqlJs = require('sql.js');
+const initSqlJs = require('fts5-sql-bundle').initSqlJs;
 
 const PLACES_DB = path.join(__dirname, 'places.db');
 
 global.window = {
-  initSqlJs: (opts) => initSqlJs({ locateFile: f => path.join(path.dirname(require.resolve('sql.js')), f) })
+  initSqlJs: (opts) => initSqlJs({ locateFile: f => path.join(path.dirname(require.resolve('fts5-sql-bundle')), f) })
 };
 global.fetch = async (url) => {
   const filePath = path.join(__dirname, '..', url);
