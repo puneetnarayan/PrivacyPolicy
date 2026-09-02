@@ -92,6 +92,7 @@ function init() {
   initHoraryTab();
   initEventPromiseTab();
   initCuspalLinksTab();
+  initLocationSelectors();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -1841,6 +1842,57 @@ function renderEventPromiseTableHtml(title, table) {
     </div>
     <p style="font-size:0.85em;color:#666;">👉 / Y marks a row whose Sub Lord (or the Moon itself) signifies at least one required house — the same rule used for Event Promise elsewhere in this app.</p>
   `;
+}
+
+// Two independent LocationSelector instances sharing the same
+// locationService.js search/database — Native/Birth Location feeds the
+// existing birthLat/birthLon/timezoneMode/ianaZone fields (which already
+// drive the entire natal-chart pipeline via generateFullChart(), unchanged);
+// Astrologer's Location feeds astroLat/astroLon (Live Ruling Planets) and
+// horaryLat/horaryLon/horaryIanaZone (Horary Prediction's judgment place).
+// Selecting one never touches the other's fields.
+let nativeLocationSelector = null;
+let astrologerLocationSelector = null;
+
+function initLocationSelectors() {
+  preloadLocationDb();
+  el('locationServiceLogicOutput').innerHTML = renderLogicDetails(LOCATION_SERVICE_LOGIC_TEXT) + renderLogicDetails(LOCATION_SELECTOR_LOGIC_TEXT);
+
+  nativeLocationSelector = createLocationSelector({
+    containerId: 'nativeLocationContainer', label: 'Birth Place', showCurrentLocationButton: false,
+    onSelect: loc => {
+      el('birthLat').value = loc.latitude;
+      el('birthLon').value = loc.longitude;
+      if (loc.timezone) {
+        el('timezoneMode').value = 'iana';
+        el('ianaZone').value = loc.timezone;
+        toggleTimezoneModeInputs();
+      }
+      BIRTH_INPUT_IDS.forEach(id => {
+        el(id).classList.remove('birth-input-reset', 'birth-input-submitted');
+        el(id).classList.add('birth-input-pending');
+      });
+      saveDefaultBirthDetails();
+      el('statusMsg').textContent = `Birth place set to ${loc.name || 'manual coordinates'}. Enter birth date/time, then click "Generate Full Chart".`;
+    }
+  });
+
+  astrologerLocationSelector = createLocationSelector({
+    containerId: 'astrologerLocationContainer', label: "Astrologer's Location", showCurrentLocationButton: true,
+    onSelect: loc => {
+      el('astroLat').value = loc.latitude;
+      el('astroLon').value = loc.longitude;
+      el('horaryLat').value = loc.latitude;
+      el('horaryLon').value = loc.longitude;
+      if (loc.timezone && el('horaryIanaZone').querySelector(`option[value="${loc.timezone}"]`)) {
+        el('horaryTimezoneMode').value = 'iana';
+        el('horaryIanaZone').value = loc.timezone;
+        el('horaryIanaZoneLabel').hidden = false;
+        el('horaryUtcOffsetLabel').hidden = true;
+      }
+      el('statusMsg').textContent = `Astrologer's location set to ${loc.name || 'manual coordinates'}. Click "Start Live Ruling Planets Display" (or re-run Horary/Cuspal Interlinks) to apply.`;
+    }
+  });
 }
 
 function initCuspalLinksTab() {

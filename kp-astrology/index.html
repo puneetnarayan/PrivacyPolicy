@@ -100,10 +100,12 @@
 
 <h2>Auto-Generate Full Chart from Birth Details (offline)</h2>
 <p>Give date/time/place of birth — this fills the entire Planets and Cusps tables below automatically (exact longitudes, sign, nakshatra, star/sub/sub-sub lord, house placement, retrograde, and Placidus cusps), entirely offline, and runs every other report in this app for the same data. Everything it fills in stays editable afterward — review it before relying on it.</p>
+<div id="nativeLocationContainer" class="output-box pastel-blue"></div>
+<div id="locationServiceLogicOutput"></div>
 <fieldset>
   <label>Birth Date: <input type="date" id="birthLocalDate"></label>
   <label>Birth Time (local clock time at birth place): <input type="time" id="birthLocalTime" step="60"></label><br><br>
-  <label>Birth Latitude: <input type="text" id="birthLat" placeholder="e.g. 28.6139"></label>
+  <label>Birth Latitude (auto-filled by Birth Place above; editable): <input type="text" id="birthLat" placeholder="e.g. 28.6139"></label>
   <label>Birth Longitude: <input type="text" id="birthLon" placeholder="e.g. 77.2090"></label><br><br>
   <label>Timezone mode:
     <select id="timezoneMode">
@@ -168,9 +170,10 @@
 <div id="dashaOutput" class="output-box pastel-aqua"></div>
 
 <h2>Live Ruling Planets (Astrologer's Location)</h2>
-<p>For a horary/prashna consultation: enter where the astrologer is sitting right now, and the Ruling Planets for this exact moment are computed continuously — Ascendant and Moon sign/star/sub/sub-sub lord, and day lord — entirely offline. The side box shows a live countdown to each upcoming change.</p>
+<p>For a horary/prashna consultation: enter where the astrologer is sitting right now, and the Ruling Planets for this exact moment are computed continuously — Ascendant and Moon sign/star/sub/sub-sub lord, and day lord — entirely offline. The side box shows a live countdown to each upcoming change. This same Astrologer's Location also fills the Horary Prediction tab's judgment place — it is completely independent of the Native/Birth Location above; changing one never changes the other.</p>
+<div id="astrologerLocationContainer" class="output-box pastel-orange"></div>
 <fieldset>
-  <label>Astrologer Latitude: <input type="text" id="astroLat" value="15.170375" placeholder="e.g. 28.6139"></label>
+  <label>Astrologer Latitude (auto-filled by Astrologer's Location above; editable): <input type="text" id="astroLat" value="15.170375" placeholder="e.g. 28.6139"></label>
   <label>Astrologer Longitude: <input type="text" id="astroLon" value="76.633721" placeholder="e.g. 77.2090"></label><br><br>
   <button id="startLiveRpBtn">Start Live Ruling Planets Display</button>
 </fieldset>
@@ -462,6 +465,7 @@
 </div>
 
 <script src="js/xlsx.full.min.js"></script>
+<script src="js/sqljs/sql-wasm.js"></script>
 <script type="module" src="js/swissephBridge.js"></script>
 <script src="js/astronomy.browser.min.js"></script>
 <script src="js/kpTables.js"></script>
@@ -486,6 +490,8 @@
 <script src="js/eventPromiseTable.js"></script>
 <script src="js/cuspalInterlinks.js"></script>
 <script src="js/vedicCharts.js"></script>
+<script src="js/locationService.js"></script>
+<script src="js/locationSelector.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/updater.js"></script>
 <script src="js/ui.js"></script>

@@ -74,6 +74,45 @@ clear what's real vs. deferred at any point.
   days, 4-second timeout, fails silently offline, proper numeric semver
   comparison (not string comparison), 10-second auto-closing popup, never
   blocks startup. Client-side only — see "Deferred" below.
+- **Worldwide location selector** (`geo/`, `js/locationService.js`,
+  `js/locationSelector.js`): a reusable search-as-you-type location picker,
+  backed by a local SQLite database (`geo/places.db`, ~34MB, ~153,000
+  towns/cities worldwide with state/country/population/IANA timezone) via
+  sql.js (SQLite compiled to WebAssembly, `js/sqljs/` — the same
+  "WASM engine, offline, no server" pattern already used for Swiss
+  Ephemeris). One search service/database, TWO fully independent instances:
+  Birth Place (Chart & Analysis tab, feeds the existing
+  birthLat/birthLon/timezoneMode/ianaZone fields that already drive
+  `generateFullChart()`, unchanged) and Astrologer's Location (feeds the
+  existing astroLat/astroLon and the Horary tab's judgment-place fields).
+  Selecting one never touches the other. Features: debounced (250ms)
+  ranked autocomplete (exact > prefix > alt-name-exact > contains >
+  alt-name-contains > population), duplicate-name places shown with
+  state/country so e.g. six different "London"s are distinguishable,
+  manual coordinate entry with -90..90 / -180..180 validation for places
+  not in the database, an optional "Use My Current Location" button
+  (Astrologer's Location only, browser geolocation requested only on
+  click, never on page load), and `getSelectedLocation()` returning null
+  (never a silent 0,0/UTC default) until a real location has been chosen.
+  Timezone always comes from the place record's own IANA zone ID — never
+  derived from longitude or guessed from country — feeding the existing
+  `zonedLocalToUtc()` (`js/timezone.js`, unchanged), which uses the
+  browser's own `Intl`/tzdata for historically-correct local-to-UTC
+  conversion. CAVEAT: the bundled database covers towns/cities but not
+  every small village (the feature's own test case, Toranagallu, is below
+  its threshold) — `geo/import-geonames.js` builds the same schema from
+  REAL GeoNames dump files for complete worldwide village-level coverage;
+  it could not be run end-to-end here because this dev sandbox's network
+  policy blocks download.geonames.org, but it was verified against a
+  hand-built GeoNames-format sample reproducing the exact
+  Torangallu/Toranagallu alternate-name scenario from the original spec.
+  30/30 integration tests pass (`geo/test-location-search.js`) against the
+  real `searchPlaces()` code path for the app's full test list (6 Indian
+  cities, 8 international cities, London duplicate-name resolution,
+  alternate-name search, coordinate/timezone integrity, min-length gating,
+  performance). Full documentation in `geo/README.md` (data source,
+  licensing/attribution, schema, how to rebuild from full GeoNames data,
+  how timezone is determined, how the app consumes lat/lon).
 - **Chart & Analysis tab UI overhaul**: the Auto-Generate Full Chart
   section now sits at the top, right below "Choose File" (previously
   buried below the Planets/Cusps tables). New "Default Values" (reloads

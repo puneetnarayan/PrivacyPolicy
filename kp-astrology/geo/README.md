@@ -1,0 +1,167 @@
+# Location database (places.db)
+
+This folder builds and holds `places.db`, the local SQLite database behind
+the app's worldwide location search (Birth Place and Astrologer's Location
+selectors — `js/locationService.js` / `js/locationSelector.js`). Everything
+here runs entirely offline once `places.db` exists; nothing in the running
+app calls a geocoding API.
+
+## What's bundled right now
+
+`places.db` shipped in this repo (~34 MB) is built from
+[dr5hn/countries-states-cities-database](https://github.com/dr5hn/countries-states-cities-database)
+(**Open Database License v1.0 (ODbL) — attribution required, see
+`LICENSE-dr5hn-dataset.txt` in this folder**; itself compiled from GeoNames
+and other public sources) via `build-places-db-from-dr5hn.js`. It covers
+**~153,000 towns and cities worldwide**, each with exact coordinates,
+state/country names, population, and IANA timezone, with English-only
+alternate names (e.g. "Bangalore" for Bengaluru). This is enough for every
+city in this app's original test list (Mumbai, Delhi, Bengaluru, Chennai,
+Kolkata, Gorakhpur, London, New York, Paris, Zurich, Singapore, Dubai,
+Sydney, Tokyo, and duplicate-name cases like the 6 different "London"s) —
+but it does **not** include every small village. `Toranagallu` (Karnataka),
+the specific village used as this feature's original test case, is below
+this dataset's inclusion threshold.
+
+**Attribution**: if you deploy this app with the bundled database, ODbL
+requires crediting the dr5hn/countries-states-cities-database project (and,
+transitively, GeoNames — see `LICENSE-dr5hn-dataset.txt`) somewhere
+reasonably discoverable (an About/Credits section, footer, or similar).
+This requirement goes away once you rebuild `places.db` from GeoNames
+directly via `import-geonames.js` below, GeoNames data itself being CC-BY
+4.0 (attribution to geonames.org still required, but no share-alike
+obligation on your own app code).
+
+**Why not the full GeoNames dataset from the start:** the sandboxed
+environment this was built in could not reach `download.geonames.org`
+(network policy). `import-geonames.js` below is the real GeoNames importer
+and is fully GeoNames-schema-compatible — it was tested against a small
+hand-built GeoNames-format sample (which correctly found "Torangallu" via
+its alternate name "Toranagallu", exactly the example from the original
+spec) — but it has not been run against an actual multi-hundred-MB GeoNames
+file. Run it yourself (below) to get complete worldwide village-level
+coverage; your own machine can very likely reach geonames.org even though
+this dev sandbox couldn't.
+
+## Rebuilding with full GeoNames data (recommended for production use)
+
+1. Go to <https://download.geonames.org/export/dump/> and download one of:
+   - `cities500.zip` (every populated place with population ≥ 500 — good
+     balance of size vs. coverage; still misses the very smallest hamlets)
+   - `allCountries.zip` (**every** populated place GeoNames has, worldwide
+     — this is what gets you literal small villages like Toranagallu; ~350
+     MB zipped, ~1.5 GB unzipped)
+   - `<CC>.zip` (e.g. `IN.zip` for India only) — full village-level detail
+     for one country, without downloading the whole planet
+   - Optionally also `admin1CodesASCII.txt`, `admin2Codes.txt`,
+     `countryInfo.txt` (from the same page) for real state/district names
+     instead of just codes
+2. Unzip the `.txt` file(s) into this `geo/` folder (or anywhere you like).
+3. `cd geo && npm install` (one-time — installs `sql.js`, the SQLite-via-
+   WebAssembly library this app already uses).
+4. Run:
+   ```
+   node import-geonames.js --main cities500.txt \
+     --admin1 admin1CodesASCII.txt --admin2 admin2Codes.txt \
+     --country countryInfo.txt --out places.db
+   ```
+5. Replace the old `geo/places.db` with the new one. Reload the app (via a
+   local server, same as always — see the main README) and searches now
+   query your full dataset.
+
+The script prints an import report: source records read, imported,
+rejected (missing lat/lon/name/timezone, or not a populated place), and how
+many names appear more than once (expected — same-named places in
+different countries). Safe to re-run any time GeoNames publishes an
+update — it rebuilds `places.db` from scratch each time rather than
+diffing against the previous run.
+
+### Which GeoNames feature classes are imported
+
+Only feature class `P` (populated places — cities, towns, villages,
+hamlets) is imported by default. GeoNames' dump files also contain
+mountains, rivers, administrative boundary markers, etc. under other
+feature classes; these are skipped since they're not birthplaces. Edit the
+`featureClass !== 'P'` check in `import-geonames.js` if you want to widen
+this.
+
+## Database schema
+
+```sql
+places (
+  id INTEGER PRIMARY KEY,
+  geonames_id INTEGER,       -- the real GeoNames ID when built from GeoNames data
+  name TEXT NOT NULL,        -- canonical name, as GeoNames/the source has it
+  ascii_name TEXT NOT NULL,  -- ASCII-only version (diacritics stripped)
+  alternate_names TEXT,      -- comma- or pipe-separated: spelling variants, transliterations, local names
+  country_code TEXT, country_name TEXT,
+  admin1_code TEXT, admin1_name TEXT,   -- state/province
+  admin2_code TEXT, admin2_name TEXT,   -- district/county (GeoNames import only — the bundled build has no admin2 data)
+  latitude REAL NOT NULL, longitude REAL NOT NULL,  -- full precision, never rounded
+  population INTEGER,
+  feature_class TEXT, feature_code TEXT,
+  timezone TEXT,              -- IANA zone ID, e.g. "Asia/Kolkata" — used directly, never derived from longitude/country
+  search_name TEXT NOT NULL   -- lowercased ascii_name, what the indexed prefix search actually queries
+);
+CREATE INDEX idx_places_name ON places(name);
+CREATE INDEX idx_places_ascii_name ON places(ascii_name);
+CREATE INDEX idx_places_search_name ON places(search_name);
+CREATE INDEX idx_places_country ON places(country_code);
+CREATE INDEX idx_places_geonames_id ON places(geonames_id);
+CREATE INDEX idx_places_population ON places(population);
+```
+
+No FTS5 virtual table: the sql.js WASM build vendored into `js/sqljs/`
+(from the npm `sql.js` package) does not have the FTS5 extension compiled
+in. `js/locationService.js` instead uses a two-phase strategy — an indexed
+prefix match first (near-instant even across 150,000+ rows), falling back
+to a broader "contains" scan only when the prefix match doesn't find
+enough results — which comfortably meets the <100ms target at this data
+size. If you rebuild against full `allCountries.txt` (millions of rows)
+and searches start feeling slow, look into an FTS5-enabled SQLite WASM
+build (e.g. `@sqlite.org/sqlite-wasm`, the official build) as a drop-in
+replacement for `js/sqljs/`.
+
+## How timezone is determined
+
+Every place record carries its own IANA timezone ID (`Asia/Kolkata`,
+`Europe/London`, etc.), taken directly from the source data — **never**
+derived from longitude or guessed from country. When you select a
+location, its timezone ID is used with this app's existing
+`zonedLocalToUtc()` (`js/timezone.js`, unchanged) to convert the entered
+local birth date/time to UTC — that function defers to the browser's own
+`Intl` implementation, which carries the full IANA tzdata (including
+historical DST/offset rule changes), so a birth date from decades ago
+under a different UTC offset or DST rule than today is converted
+correctly. `js/locationSelector.js`'s manual-entry fallback requires you to
+type the IANA zone ID yourself, for exactly the same reason: this app never
+assumes UTC or guesses a timezone from coordinates alone.
+
+## How the app uses latitude/longitude
+
+`js/locationSelector.js`'s `getSelectedLocation()` returns the location's
+exact `latitude`/`longitude` (full precision, never rounded) plus its
+`timezone`. In the app itself, selecting a Birth Place fills the existing
+Birth Latitude/Longitude/Timezone fields that already drive the entire
+natal-chart calculation pipeline (`generateFullChart()` in `js/ui.js`,
+unchanged); selecting an Astrologer's Location fills the existing
+Astrologer Latitude/Longitude fields (Live Ruling Planets) and the Horary
+Prediction tab's judgment-place fields. The two selectors are fully
+independent — picking one never changes the other — since the Native's
+birth chart and the astrologer's/query location serve different KP
+purposes (see `LOCATION_SELECTOR_LOGIC_TEXT` in `js/locationSelector.js`
+and the equivalent notes on the Horary tab).
+
+## Updating in future
+
+- New GeoNames data: re-run `import-geonames.js` with freshly downloaded
+  files (step 4 above) and replace `places.db`.
+- New IANA timezone rules (e.g. a country changes its DST policy): nothing
+  to do here — timezone conversion goes through the browser's own `Intl`
+  API (`js/timezone.js`), which is updated by browser vendors independently
+  of this app.
+- Want the bundled (out-of-the-box) database refreshed from a newer
+  dr5hn release instead of switching to full GeoNames: re-run
+  `build-places-db-from-dr5hn.js` against a freshly downloaded
+  `json-cities.json.gz` / `countries.json` / `states.json` from that
+  project's [latest release](https://github.com/dr5hn/countries-states-cities-database/releases).
