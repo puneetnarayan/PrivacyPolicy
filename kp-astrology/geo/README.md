@@ -60,17 +60,17 @@ list of OPTIONAL supplementary database files it finds — currently just
 results — so you get worldwide city coverage AND full India village
 coverage at once, without needing a single combined database.
 
-**A real `places-india.db` (built from the actual GeoNames `IN.zip` — the
-same import verified against this app's own Toranagallu test case, with
-state/district names self-derived from the file's own admin boundary
-records) is NOT committed to this git repo** — at ~97MB it's too close to
-GitHub's 100MB hard file-size limit to be good practice to check in. It was
-handed to you directly (as a file, alongside the code changes) the first
-time this was built. To use it: drop it in as `geo/places-india.db` next to
-`places.db` — the app picks it up automatically, no code changes needed. If
-you don't have it, `import-geonames.js --main IN.txt --out
+**A real `places-india.db`** (built from the actual GeoNames `IN.zip`,
+verified against this app's own Toranagallu test case, with state/district
+names self-derived from the file's own admin boundary records) **is
+committed to this repo, by explicit request** — at ~97MB it's close to
+GitHub's 100MB hard file-size limit, which is worth knowing before you fork
+or mirror this repo (large git history, slower clones), but it fits. If you
+ever want to remove it from history (e.g. before making the repo public),
+rebuild it locally instead: `import-geonames.js --main IN.txt --out
 geo/places-india.db` (below) rebuilds it from your own downloaded
-`IN.zip` in under a minute.
+`IN.zip` in under a minute, and `geo/.gitignore`'s comment explains how to
+stop tracking it again.
 
 The same mechanism works for any other single-country deep import you want
 — just add its path to `OPTIONAL_SUPPLEMENTARY_DB_PATHS` in

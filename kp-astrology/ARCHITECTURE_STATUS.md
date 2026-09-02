@@ -104,8 +104,9 @@ clear what's real vs. deferred at any point.
   bundled worldwide `places.db` when present, merging search results from
   both — worldwide city coverage plus full India village coverage
   together, without replacing either. The India database itself (~97MB,
-  GeoNames CC-BY 4.0) is NOT committed to git (too close to GitHub's 100MB
-  limit) — delivered as a separate file; see geo/README.md. Also fixed a
+  GeoNames CC-BY 4.0) IS committed to git, by explicit request (close to
+  GitHub's 100MB limit but under it) — see geo/README.md for the tradeoff
+  this implies for forking/mirroring the repo. Also fixed a
   real bug this surfaced: some browsers' `Intl.supportedValuesOf('timeZone')`
   enumerate an older alias (e.g. "Asia/Calcutta") for the same zone as
   "Asia/Kolkata" — setting a `<select>`'s value to the unlisted-but-valid
