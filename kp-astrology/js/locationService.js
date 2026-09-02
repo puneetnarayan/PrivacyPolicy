@@ -119,37 +119,32 @@ function runQuery(db, sql, params) {
   return rows;
 }
 
-// Runs the two-phase (prefix, then contains-fallback) search against ONE
-// database and returns its candidate rows, tagged with `_dbIndex` so ids
-// from different databases (each starting their own PRIMARY KEY at 1)
-// never collide when results are merged across databases.
-function searchOneDb(db, dbIndex, q, limit) {
+// Phase 1 only: indexed prefix match on ONE database's search_name index —
+// fast even across 500,000+ rows, since SQLite can use
+// idx_places_search_name for a bounded range scan instead of examining
+// every row. Tags each row with `_dbIndex` so ids from different databases
+// (each starting their own PRIMARY KEY at 1) never collide when merged.
+function searchOneDbPrefix(db, dbIndex, q, limit) {
   const upperBound = q.slice(0, -1) + String.fromCharCode(q.charCodeAt(q.length - 1) + 1);
-
-  // Phase 1: indexed prefix match on the primary (search_name) index — fast
-  // even across 150,000+ rows, since SQLite can use idx_places_search_name
-  // for a bounded range scan instead of examining every row.
-  const prefixRows = runQuery(db, `
+  const rows = runQuery(db, `
     SELECT ${SELECT_COLUMNS} FROM places
     WHERE search_name >= ? AND search_name < ?
     ORDER BY population DESC LIMIT ?
   `, [q, upperBound, limit * 3]);
+  rows.forEach(r => { r._dbIndex = dbIndex; });
+  return rows;
+}
 
-  let candidateRows = prefixRows;
-  if (candidateRows.length < limit) {
-    // Phase 2: broader contains-scan (name OR alternate names contain the
-    // query anywhere) — only runs when Phase 1 didn't find enough, so the
-    // common "name starts with what I typed" case never pays this cost.
-    const containsRows = runQuery(db, `
-      SELECT ${SELECT_COLUMNS} FROM places
-      WHERE (search_name LIKE ? OR lower(alternate_names) LIKE ?)
-      ORDER BY population DESC LIMIT ?
-    `, ['%' + q + '%', '%' + q + '%', limit * 5]);
-    const seen = new Set(candidateRows.map(r => r.id));
-    containsRows.forEach(r => { if (!seen.has(r.id)) { candidateRows.push(r); seen.add(r.id); } });
-  }
-  candidateRows.forEach(r => { r._dbIndex = dbIndex; });
-  return candidateRows;
+// Phase 2 only: the broader, slower contains-scan (name OR alternate names
+// contain the query anywhere) against ONE database.
+function searchOneDbContains(db, dbIndex, q, limit) {
+  const rows = runQuery(db, `
+    SELECT ${SELECT_COLUMNS} FROM places
+    WHERE (search_name LIKE ? OR lower(alternate_names) LIKE ?)
+    ORDER BY population DESC LIMIT ?
+  `, ['%' + q + '%', '%' + q + '%', limit * 5]);
+  rows.forEach(r => { r._dbIndex = dbIndex; });
+  return rows;
 }
 
 // Searches every loaded database (places.db plus any installed optional
@@ -163,7 +158,27 @@ async function searchPlaces(query, limit) {
   if (q.length < 2) return [];
 
   const dbs = await loadPlacesDb();
-  const candidateRows = dbs.flatMap((db, i) => searchOneDb(db, i, q, limit));
+
+  // Phase 1 across EVERY database first (cheap, indexed) — only if the
+  // COMBINED total across all databases still falls short does Phase 2
+  // (the expensive contains-scan) run at all, and only against databases
+  // whose own Phase 1 came up short. This matters once more than one
+  // database is loaded: without checking the combined total first, adding
+  // a large supplementary database (e.g. a full-country village import)
+  // would make EVERY search pay that database's full contains-scan cost,
+  // even when another already-loaded database had plenty of matches.
+  const prefixResults = dbs.map((db, i) => searchOneDbPrefix(db, i, q, limit));
+  let candidateRows = prefixResults.flat();
+
+  if (candidateRows.length < limit) {
+    const containsResults = dbs.map((db, i) =>
+      prefixResults[i].length < limit ? searchOneDbContains(db, i, q, limit) : []);
+    const seen = new Set(candidateRows.map(r => `${r._dbIndex}:${r.id}`));
+    containsResults.flat().forEach(r => {
+      const key = `${r._dbIndex}:${r.id}`;
+      if (!seen.has(key)) { candidateRows.push(r); seen.add(key); }
+    });
+  }
 
   const ranked = candidateRows.map(row => {
     const name = String(row.name).toLowerCase();
