@@ -72,6 +72,7 @@ function createLocationSelector(config) {
         <div id="${uid}_dropdown" style="display:none;position:absolute;z-index:50;background:#fff;border:1px solid #999;
           border-radius:4px;max-height:280px;overflow-y:auto;width:100%;box-shadow:0 2px 8px rgba(0,0,0,0.15);"></div>
       </div>
+      <p id="${uid}_dbStatus" style="font-size:0.8em;color:#666;margin:4px 0 0;">Loading location database...</p>
       ${config.showCurrentLocationButton ? `<button type="button" id="${uid}_currentLocBtn" style="margin-top:6px;">Use My Current Location</button>` : ''}
       <p id="${uid}_selectedSummary" style="margin:8px 0 0;font-weight:bold;"></p>
 
@@ -101,6 +102,17 @@ function createLocationSelector(config) {
 
   const searchInput = el(`${uid}_search`);
   const dropdown = el(`${uid}_dropdown`);
+  const dbStatus = el(`${uid}_dbStatus`);
+
+  // Visible feedback for the database load — so a slow load, a blocked
+  // fetch (e.g. opening index.html directly instead of via a local server),
+  // or any other failure is never just silent/empty. loadPlacesDb() is
+  // memoized, so this is a cheap no-op once already loaded.
+  loadPlacesDb().then(() => { dbStatus.textContent = ''; dbStatus.hidden = true; })
+    .catch(err => {
+      dbStatus.textContent = `Location database failed to load: ${err.message}. If you opened this file directly in the browser, run it via a local server instead (see the app's README).`;
+      dbStatus.style.color = '#b71c1c';
+    });
 
   function renderDropdown(results) {
     activeResults = results;
@@ -154,6 +166,8 @@ function createLocationSelector(config) {
     clearTimeout(debounceTimer);
     const q = searchInput.value;
     if (q.trim().length < 2) { dropdown.style.display = 'none'; return; }
+    dropdown.innerHTML = `<div style="padding:8px 10px;color:#888;">Searching...</div>`;
+    dropdown.style.display = 'block';
     debounceTimer = setTimeout(async () => {
       try {
         const results = await searchPlaces(q, 10);

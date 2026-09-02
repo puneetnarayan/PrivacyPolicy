@@ -74,6 +74,23 @@ clear what's real vs. deferred at any point.
   days, 4-second timeout, fails silently offline, proper numeric semver
   comparison (not string comparison), 10-second auto-closing popup, never
   blocks startup. Client-side only — see "Deferred" below.
+- **Location selector: two more real bugs fixed, placeholder file added**
+  (`js/locationSelector.js`, `js/locationService.js`, `geo/places-india.db`):
+  (1) A corrupt/placeholder database file at `geo/places-india.db` (e.g.
+  before you've dropped the real one in) was crashing search entirely — a
+  `SELECT 1 FROM places LIMIT 1` validation at LOAD time now catches this
+  and treats it exactly like a missing/not-installed optional database,
+  instead of only failing (and taking down every search, including for the
+  bundled worldwide database) once a query actually ran against it. (2) The
+  location search box now shows visible "Loading location database..." /
+  "Searching..." / error feedback instead of silently doing nothing —
+  found while chasing an intermittent one-off failure that could not be
+  reliably reproduced afterward, but the lack of any visible state during
+  loading was a real gap either way. `geo/places-india.db` is now a tracked
+  4KB placeholder text file (not real SQLite) marking exactly where to drop
+  the real ~97MB database — `.gitignore` no longer excludes the filename,
+  so replacing it locally is a normal (uncommitted) file change, not a
+  new/renamed path to remember.
 - **Location selector: real GeoNames import verified, IANA-alias bug fixed**
   (`geo/import-geonames.js`, `js/locationService.js`, `js/ui.js`): a real
   GeoNames `IN.zip` (660,026 source rows) was supplied and imported

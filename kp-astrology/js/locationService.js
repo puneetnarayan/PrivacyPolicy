@@ -37,7 +37,15 @@ async function loadOneDb(SQL, dbPath, required) {
     const response = await fetch(dbPath);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const buffer = await response.arrayBuffer();
-    return new SQL.Database(new Uint8Array(buffer));
+    const db = new SQL.Database(new Uint8Array(buffer));
+    // sql.js doesn't validate the file at construction time — a
+    // placeholder/corrupt file (e.g. before you've dropped in the real
+    // geo/places-india.db) only fails once a query runs against it, which
+    // would otherwise crash every search. Validate now, at load time, so a
+    // bad optional file is caught here and treated as "not installed"
+    // instead of breaking search for everything else.
+    db.exec(`SELECT 1 FROM places LIMIT 1`);
+    return db;
   } catch (err) {
     if (required) throw new Error(`Could not load ${dbPath} (${err.message}).`);
     return null; // optional supplementary DB simply isn't installed — not an error

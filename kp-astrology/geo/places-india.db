@@ -1,0 +1,16 @@
+PLACEHOLDER — replace this file with the real geo/places-india.db.
+
+This is NOT a real SQLite database. It exists only so the exact file path
+the app expects (geo/places-india.db) is present in the repo/zip, and so
+it's obvious where to drop the real file in.
+
+The real file (~97MB, built from your own GeoNames IN.zip via
+import-geonames.js) is too large to commit to git or send through chat
+delivery — see geo/README.md, section "Optional supplementary database",
+for how to build it yourself in under a minute from your IN.zip, or ask
+Claude for the already-built file directly (delivered as a file, not a
+git commit or zip).
+
+The app safely ignores this placeholder (it fails to parse as SQLite and
+is treated exactly like a missing/not-installed supplementary database)
+until you replace it with the real one.

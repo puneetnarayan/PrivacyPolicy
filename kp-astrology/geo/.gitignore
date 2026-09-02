@@ -1,7 +1,7 @@
-# Optional supplementary location databases (e.g. places-india.db) are
-# deliberately NOT committed — too large for comfortable git history (close
-# to GitHub's 100MB hard limit). Built via import-geonames.js from your own
-# downloaded GeoNames files; see README.md. Delivered as a separate file
-# alongside code changes rather than checked in.
-places-india.db
+# The real places-india.db you build/receive (~97MB) should NOT be
+# committed on top of the tracked placeholder — too large for comfortable
+# git history (close to GitHub's 100MB hard limit). Replace the tracked
+# placeholder file locally (git will just see it as locally modified) but
+# don't add/commit that change. See README.md, "Optional supplementary
+# database".
 node_modules/
