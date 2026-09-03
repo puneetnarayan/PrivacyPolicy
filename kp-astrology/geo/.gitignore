@@ -1,7 +1,9 @@
-# The real places-india.db you build/receive (~97MB) should NOT be
-# committed on top of the tracked placeholder — too large for comfortable
-# git history (close to GitHub's 100MB hard limit). Replace the tracked
-# placeholder file locally (git will just see it as locally modified) but
-# don't add/commit that change. See README.md, "Optional supplementary
-# database".
+# places-india.db (~97MB) is already committed to this repo, as a one-time
+# addition (per explicit request). It stays tracked, but should NOT be
+# recommitted/replaced on routine pushes — every regular commit to this repo
+# should only ever touch the small places.db plus code changes, never
+# re-add or modify places-india.db. If you genuinely need to rebuild it
+# (e.g. GeoNames publishes an update), that's a deliberate one-off: rebuild
+# it with import-geonames.js, review the diff, and commit it by itself with
+# a clear message — don't let it ride along with unrelated commits.
 node_modules/
