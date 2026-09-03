@@ -30,7 +30,15 @@ const PLACES_DB_PATH = 'geo/places.db';
 const OPTIONAL_SUPPLEMENTARY_DB_PATHS = ['geo/places-india.db'];
 const SQLJS_WASM_DIR = 'js/sqljs/';
 
-let dbLoadPromise = null;
+let primaryDbPromise = null;
+// Databases currently available to search against. Starts as just the
+// primary (required) database once it loads; the optional supplementary
+// database(s) are appended to this array later, asynchronously, once they
+// finish loading — see scheduleSupplementaryLoad() below. Reassigned (not
+// mutated in place) each time something new finishes loading, so callers
+// that re-read it on every search (loadPlacesDb() does) always see
+// whatever is available AT THAT MOMENT.
+let loadedDbs = [];
 
 async function loadOneDb(SQL, dbPath, required) {
   try {
@@ -52,27 +60,61 @@ async function loadOneDb(SQL, dbPath, required) {
   }
 }
 
-// Returns an array of loaded sql.js Database objects: places.db (required)
-// plus any installed optional supplementary databases. Searches run
-// against every database in this array and merge the results.
-function loadPlacesDb() {
-  if (dbLoadPromise) return dbLoadPromise;
-  dbLoadPromise = (async () => {
+// Loads just the primary (required) database — small enough (a few tens
+// of MB) to be ready quickly. Resolves as soon as THIS is ready, without
+// waiting for any optional supplementary database (which can be
+// substantially larger, e.g. a full-country village-level import) — so
+// the app becomes searchable fast, rather than every page load paying the
+// full combined download/parse cost of every installed database before
+// anything is usable.
+function loadPrimaryDb() {
+  if (primaryDbPromise) return primaryDbPromise;
+  primaryDbPromise = (async () => {
     const initSqlJsFn = window.initSqlJs;
     if (!initSqlJsFn) throw new Error('sql.js failed to load (js/sqljs/sql-wasm.js missing or blocked).');
     const SQL = await initSqlJsFn({ locateFile: file => SQLJS_WASM_DIR + file });
     const primary = await loadOneDb(SQL, PLACES_DB_PATH, true);
-    const supplementary = await Promise.all(OPTIONAL_SUPPLEMENTARY_DB_PATHS.map(p => loadOneDb(SQL, p, false)));
-    return [primary, ...supplementary.filter(Boolean)];
+    loadedDbs = [primary];
+    scheduleSupplementaryLoad(SQL);
+    return primary;
   })();
-  return dbLoadPromise;
+  return primaryDbPromise;
 }
 
-// Kicks off the (one-time) database load in the background without
-// blocking anything — call this once at app startup so the first search a
-// user actually types is already fast.
+// Fetches the optional supplementary database(s) in the background, timed
+// to start once the browser is idle (or after a short fallback delay in
+// browsers without requestIdleCallback) rather than immediately — so this
+// larger download doesn't compete for bandwidth/CPU with the primary
+// database, the Swiss Ephemeris WASM engine, or anything else the page
+// needs first. A search that runs before this finishes simply searches
+// whatever is loaded so far (see loadPlacesDb()); once this resolves,
+// every subsequent search automatically includes it too.
+function scheduleSupplementaryLoad(SQL) {
+  if (!OPTIONAL_SUPPLEMENTARY_DB_PATHS.length) return;
+  const start = async () => {
+    const supplementary = await Promise.all(OPTIONAL_SUPPLEMENTARY_DB_PATHS.map(p => loadOneDb(SQL, p, false)));
+    loadedDbs = [loadedDbs[0], ...supplementary.filter(Boolean)];
+  };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(start, { timeout: 3000 });
+  else setTimeout(start, 300);
+}
+
+// Returns the array of sql.js Database objects currently available to
+// search against — always at least the primary database once it's
+// loaded; the optional supplementary database(s) too, once THEY finish
+// loading (see scheduleSupplementaryLoad()). Call this fresh on every
+// search rather than caching the result, so a search always sees whatever
+// is loaded by that moment.
+async function loadPlacesDb() {
+  await loadPrimaryDb();
+  return loadedDbs;
+}
+
+// Kicks off the (one-time) primary database load in the background
+// without blocking anything — call this once at app startup so the first
+// search a user actually types is already fast.
 function preloadLocationDb() {
-  loadPlacesDb().catch(err => console.error('Location database failed to load:', err));
+  loadPrimaryDb().catch(err => console.error('Location database failed to load:', err));
 }
 
 function rowToLocation(row) {

@@ -62,6 +62,12 @@ async function run() {
 
   console.log('=== Village-level test (optional supplementary DB: geo/places-india.db) ===');
   {
+    // The supplementary India DB loads lazily in the background (via
+    // requestIdleCallback/setTimeout) so the app feels snappy on the small
+    // primary DB alone — give it a moment to finish before checking it.
+    if (fs.existsSync(path.join(__dirname, 'places-india.db'))) {
+      await new Promise(r => setTimeout(r, 500));
+    }
     const results = await searchPlaces('Toranagallu', 5);
     if (fs.existsSync(path.join(__dirname, 'places-india.db'))) {
       check('Toranagallu found via alternate name', results.some(r => r.name === 'Torangallu'), JSON.stringify(results.map(r => r.name)));

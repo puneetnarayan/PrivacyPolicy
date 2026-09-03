@@ -286,6 +286,27 @@ clear what's real vs. deferred at any point.
   significators, life-topic analysis, Excel import/export — unchanged from
   before this round of work, per instruction not to redesign anything working.
 
+- **Snappy location-database loading** (`js/locationService.js`): loading was
+  split into two phases instead of one eager fetch of everything. `loadPrimaryDb()`
+  fetches only the required `geo/places.db` (~38 MB) and resolves as soon as
+  that's ready — this is what the location selectors wait on, so the app
+  becomes searchable (worldwide cities) quickly. The optional `geo/places-india.db`
+  (~98 MB, India village-level coverage) is now fetched separately, scheduled
+  via `requestIdleCallback` (falls back to `setTimeout(…, 300)` where
+  `requestIdleCallback` doesn't exist) so it loads in the background without
+  competing with page-critical resources (Swiss Ephemeris WASM, xlsx.js,
+  astronomy.js) for bandwidth/CPU during initial load. `loadedDbs` is
+  reassigned (not mutated) once the supplementary DB finishes, so any search
+  that runs later automatically includes it; a search that happens to run
+  before it's ready simply searches what's loaded so far — no error, no
+  blocking. Verified via `geo/test-location-search.js` (34/34 passing) and a
+  real browser measurement on this machine: search box interactive and
+  primary DB ready in ~2.3s (serving both DBs locally over
+  `python3 -m http.server`; real-world numbers depend on your actual hosting
+  and network), and a "Toranagallu" search run 4.5s after page load already
+  found its match — i.e. the India DB had already loaded in the background
+  by the time a user would plausibly have started typing.
+
 ## Deferred (by your explicit decision, not overlooked)
 
 - **BNN calculations**: not implemented — need a reference for what this
