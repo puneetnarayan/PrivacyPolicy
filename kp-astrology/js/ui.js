@@ -989,13 +989,19 @@ function renderPratyantarDetail(antar) {
   el('pratyantarDetail').innerHTML = html;
 }
 
-// "Vimshottari Dasha (4 Levels)" tab: a read-only, all-at-once nested view
-// of the same dasha computed for the Chart & Analysis tab's Moon Longitude
-// / Birth Date-Time (UTC) — but computed with levels:4 (adds Sookshmadasha,
-// the 4th level, on top of the Maha/Antar/Pratyantar the Main tab's
-// click-through view already shows) and rendered as nested <details> so
-// every level is present in the DOM and expandable without extra state or
-// re-fetching. Does not compute or affect anything else in the app.
+// "Vimshottari Dasha (4 Levels)" tab: a read-only, table-based drill-down
+// view of the same dasha computed for the Chart & Analysis tab's Moon
+// Longitude / Birth Date-Time (UTC) — but computed with levels:4 (adds
+// Sookshmadasha, the 4th level, on top of the Maha/Antar/Pratyantar the
+// Main tab's own click-through view already shows). Clicking a lord opens
+// its sub-period table in a new column to the right, side by side with the
+// column it was clicked from, so the whole drill-down path stays visible
+// at once (clicking a different lord in an already-open column replaces
+// only the columns after it). Each row also shows the person's age
+// (years-months-days) at that period's start. Does not compute or affect
+// anything else in the app.
+let dashaLevelsState = null; // { dasha, birthDateTime } from the last Refresh
+
 function initDashaLevelsTab() {
   el('refreshDashaLevelsBtn').addEventListener('click', renderDashaLevelsTab);
 }
@@ -1004,36 +1010,112 @@ function renderDashaLevelsTab() {
   const moonLon = parseFloat(el('moonLongitude').value);
   const birthStr = el('birthDateTime').value;
   if (isNaN(moonLon) || !birthStr) {
+    dashaLevelsState = null;
     el('dashaLevelsOutput').innerHTML = '<p>Enter Moon Longitude and Birth Date/Time (UTC) in the Chart &amp; Analysis tab (or Auto-Generate/upload a chart there) first, then click Refresh here.</p>';
     return;
   }
 
   const birthDateTime = new Date(birthStr);
   const dasha = computeVimshottariDasha(moonLon, birthDateTime, { levels: 4 });
-  const fmt = d => d.toISOString().slice(0, 10);
+  dashaLevelsState = { dasha, birthDateTime };
 
   let html = renderLogicDetails(DASHA_LOGIC_TEXT);
   html += `<p><strong>Birth Nakshatra:</strong> ${dasha.birthNakshatra.name} (Star Lord: ${dasha.birthNakshatra.starLord})</p>`;
   html += `<p><strong>Dasha Balance at Birth:</strong> ${dasha.balance.years}y ${dasha.balance.months}m ${dasha.balance.days}d</p>`;
-  html += '<p style="font-size:0.85em;color:#666;">Click any period to expand its sub-periods, down to Sookshmadasha (4th level).</p>';
-  html += dasha.mahadashas.map(m => renderDashaLevelNode(m, 0, fmt)).join('');
+  html += '<p style="font-size:0.85em;color:#666;">Click a lord to open its sub-periods in a table next to it, down to Sookshmadasha (4th level). Times are local clock time at the birth place (from the Chart &amp; Analysis tab\'s timezone setting), or UTC if none is set. "Age at Start" is the person\'s age (years-months-days) when that period begins.</p>';
+  html += '<div class="dasha-columns" id="dashaLevelsColumns"></div>';
   el('dashaLevelsOutput').innerHTML = html;
+
+  renderDashaColumn(0, dasha.mahadashas);
 }
 
-// childKeys[depth] names the array holding the next level down; depth 3
-// (Sookshmadasha) has no further children, so recursion bottoms out there.
+// childKeys[level] names the array holding the next level down; level 3
+// (Sookshmadasha) has no further children, so that column's lord isn't a link.
 const DASHA_LEVEL_CHILD_KEYS = ['antardashas', 'pratyantardashas', 'sookshmadashas'];
 const DASHA_LEVEL_NAMES = ['Mahadasha', 'Antardasha', 'Pratyantardasha', 'Sookshmadasha'];
 
-function renderDashaLevelNode(period, depth, fmt) {
-  const label = `${period.lord} ${DASHA_LEVEL_NAMES[depth]}: ${fmt(period.start)} – ${fmt(period.end)}`;
-  const childKey = DASHA_LEVEL_CHILD_KEYS[depth];
-  const children = childKey ? period[childKey] : null;
-  const indent = `margin-left:${depth * 18}px;`;
-  if (!children || !children.length) {
-    return `<div style="${indent}padding:2px 0;">${label}</div>`;
+// Reads a UTC instant as local calendar/clock fields at the birth place —
+// using the Chart & Analysis tab's own timezone setting (IANA zone or UTC
+// offset), same source of truth as the rest of the app — falling back to
+// plain UTC if neither is set. label is a short suffix for display only.
+function dashaLocalParts(date) {
+  const mode = el('timezoneMode') ? el('timezoneMode').value : '';
+  if (mode === 'iana' && el('ianaZone').value) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: el('ianaZone').value, year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(date);
+      const get = t => Number(parts.find(p => p.type === t).value);
+      return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour') % 24, minute: get('minute'), label: null };
+    } catch (e) { /* fall through to UTC below */ }
+  } else if (mode === 'offset' && el('utcOffset').value) {
+    try {
+      const offsetMinutes = parseUtcOffsetToMinutes(el('utcOffset').value);
+      const shifted = new Date(date.getTime() + offsetMinutes * 60000);
+      return { year: shifted.getUTCFullYear(), month: shifted.getUTCMonth() + 1, day: shifted.getUTCDate(), hour: shifted.getUTCHours(), minute: shifted.getUTCMinutes(), label: `UTC${el('utcOffset').value}` };
+    } catch (e) { /* fall through to UTC below */ }
   }
-  return `<details style="${indent}"><summary>${label}</summary>${children.map(c => renderDashaLevelNode(c, depth + 1, fmt)).join('')}</details>`;
+  return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate(), hour: date.getUTCHours(), minute: date.getUTCMinutes(), label: 'UTC' };
+}
+
+function formatDashaMoment(date) {
+  const p = dashaLocalParts(date);
+  const pad = n => String(n).padStart(2, '0');
+  return `${p.year}-${pad(p.month)}-${pad(p.day)} ${pad(p.hour)}:${pad(p.minute)}${p.label ? ' ' + p.label : ''}`;
+}
+
+// Calendar (Y-M-D) age, ignoring time-of-day — the conventional way an age
+// is stated (matches this app's own "Dasha Balance at Birth" convention).
+// fromParts/toParts come from dashaLocalParts(); toParts is assumed >= fromParts.
+function calendarAgeYMD(fromParts, toParts) {
+  let years = toParts.year - fromParts.year;
+  let months = toParts.month - fromParts.month;
+  let days = toParts.day - fromParts.day;
+  if (days < 0) {
+    months--;
+    days += new Date(Date.UTC(toParts.year, toParts.month - 1, 0)).getUTCDate();
+  }
+  if (months < 0) { years--; months += 12; }
+  if (years < 0) return null; // guard: a period starting before birth shouldn't occur
+  return { years, months, days };
+}
+
+// Renders column `level` for `periods`, discarding that column and every
+// column after it first (since whichever row was just clicked to get here
+// replaces the entire path below it).
+function renderDashaColumn(level, periods) {
+  const columnsEl = el('dashaLevelsColumns');
+  [...columnsEl.children].slice(level).forEach(c => c.remove());
+
+  const birthParts = dashaLocalParts(dashaLevelsState.birthDateTime);
+  const childKey = DASHA_LEVEL_CHILD_KEYS[level]; // undefined at the Sookshmadasha (leaf) column
+
+  let html = `<table><thead><tr><th>${DASHA_LEVEL_NAMES[level]}</th><th>Start</th><th>End</th><th>Age at Start</th></tr></thead><tbody>`;
+  periods.forEach((p, i) => {
+    const age = calendarAgeYMD(birthParts, dashaLocalParts(p.start));
+    const ageText = age ? `${age.years}y ${age.months}m ${age.days}d` : '—';
+    const lordCell = childKey
+      ? `<button type="button" class="dasha-lord-link" data-index="${i}">${p.lord}</button>`
+      : p.lord;
+    html += `<tr><td>${lordCell}</td><td>${formatDashaMoment(p.start)}</td><td>${formatDashaMoment(p.end)}</td><td>${ageText}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  const col = document.createElement('div');
+  col.className = 'dasha-column';
+  col.innerHTML = html;
+  columnsEl.appendChild(col);
+
+  if (!childKey) return; // leaf level — nothing further to open
+  col.querySelectorAll('.dasha-lord-link').forEach(btn => {
+    btn.addEventListener('click', () => {
+      col.querySelectorAll('.dasha-lord-link').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const period = periods[Number(btn.dataset.index)];
+      renderDashaColumn(level + 1, period[childKey]);
+    });
+  });
 }
 
 // Each life topic gets its own pastel-colored card, cycled through this list.

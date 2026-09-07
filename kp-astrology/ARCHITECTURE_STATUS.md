@@ -40,21 +40,33 @@ clear what's real vs. deferred at any point.
   "file already selected" and "table already has manually-entered data"
   cases behave as before.
 - **"Vimshottari Dasha (4 Levels)" tab**, placed right before Settings
-  (`index.html`; `initDashaLevelsTab()`/`renderDashaLevelsTab()` in
-  `js/ui.js`): a read-only, all-at-once nested view of the same dasha
-  computed for whatever birth data is currently loaded in the Chart &
-  Analysis tab (manual entry, Auto-Generate, or uploaded file) — reuses
-  `computeVimshottariDasha()` unchanged, just called with `levels: 4`
-  instead of the Main tab's `levels: 3`, to also compute the 4th level
-  (Sookshmadasha) that the Main tab's own click-through dasha view doesn't
-  go to. Rendered as nested `<details>` elements (Mahadasha → Antardasha →
-  Pratyantardasha → Sookshmadasha), so the whole 4-level tree exists in the
-  page and is expandable by clicking, with no separate click-handler
-  wiring needed per level. Has its own "Refresh" button (same pattern as
-  the Charts tab) — it does not auto-update when the chart changes, and it
-  does not feed back into or affect any other tab's calculation. Verified
-  with a Playwright test confirming exactly 9 periods appear at each of
-  the 4 levels for a real generated chart.
+  (`index.html`; `initDashaLevelsTab()`/`renderDashaLevelsTab()`/
+  `renderDashaColumn()` in `js/ui.js`): a read-only, table-based drill-down
+  view of the same dasha computed for whatever birth data is currently
+  loaded in the Chart & Analysis tab (manual entry, Auto-Generate, or
+  uploaded file) — reuses `computeVimshottariDasha()` unchanged, called
+  with `levels: 4` instead of the Main tab's `levels: 3`, to also reach
+  Sookshmadasha (the 4th level). Each level (Mahadasha, Antardasha,
+  Pratyantardasha, Sookshmadasha) is a table with columns Lord | Start |
+  End | Age at Start; clicking a lord opens its sub-period table in a new
+  column to its right (side by side with the column clicked from, not
+  replacing it) — clicking a different lord in an already-open column
+  discards and rebuilds every column after it. Start/End show date **and**
+  local clock time (not just date), read via `dashaLocalParts()` in the
+  Chart & Analysis tab's own timezone setting (IANA zone or UTC offset),
+  falling back to plain UTC if neither is set — same source of truth used
+  everywhere else in the app, never a separate guess. "Age at Start" is
+  the person's age in years-months-days at that period's start, via
+  `calendarAgeYMD()` — a calendar (Y-M-D) difference ignoring time-of-day,
+  the same convention this app's existing "Dasha Balance at Birth" already
+  uses. Has its own "Refresh" button (same pattern as the Charts tab) — it
+  does not auto-update when the chart changes, and doesn't feed back into
+  or affect any other tab. Verified with a Playwright test confirming
+  9 periods at each of the 4 levels for a real generated chart, correct
+  0y-0m-0d age at the very first Mahadasha/Antardasha/Sookshmadasha (each
+  starts exactly at birth), a real local time (not just a date) shown per
+  row, and that switching the selected lord in one column correctly
+  discards the columns opened after it.
 - **D1 / D9 / KP Charts** (`js/vedicCharts.js`, "Charts" tab): visual Rasi
   (D1), Navamsa (D9), and KP charts, each selectable in South Indian
   (fixed sign grid) or North Indian (diamond, fixed house positions, SVG)

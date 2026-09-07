@@ -48,6 +48,17 @@
   button:hover { background-color: #c3e0ff; }
   button:active { background-color: #aed1f7; }
 
+  /* Vimshottari Dasha (4 Levels) tab: clicking a lord opens its sub-period
+     table in the next column, side by side, so all opened levels stay
+     visible at once instead of replacing each other. */
+  .dasha-columns { display: flex; gap: 12px; align-items: flex-start; overflow-x: auto; }
+  .dasha-column { flex: 0 0 auto; min-width: 300px; }
+  .dasha-column table { border-collapse: collapse; width: 100%; }
+  .dasha-column th, .dasha-column td { border: 1px solid rgba(0,0,0,0.15); padding: 4px 8px; font-size: 0.85em; text-align: left; }
+  .dasha-lord-link { background: none; border: none; padding: 0; color: #1a4fa0; text-decoration: underline; cursor: pointer; font: inherit; }
+  .dasha-lord-link:hover { color: #0d2f66; }
+  .dasha-lord-link.active { font-weight: bold; color: #0d2f66; }
+
   /* Tab strip for new features (existing single-page content stays in "Chart & Analysis") */
   .tab-strip { display: flex; gap: 8px; margin: 16px 0; border-bottom: 2px solid #ddd; padding-bottom: 8px; }
   .tab-button { background-color: #f0e6ff; border: 1px solid #cbb8ee; border-radius: 6px 6px 0 0; padding: 8px 18px; font-size: 0.95em; cursor: pointer; color: #2c3e50; }
