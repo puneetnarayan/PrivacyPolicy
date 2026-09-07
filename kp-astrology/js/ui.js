@@ -81,6 +81,7 @@ function init() {
   renderCuspTable();
   el('loadSampleBtn').addEventListener('click', loadSampleData);
   el('uploadInput').addEventListener('change', handleUpload);
+  el('generateFromUploadBtn').addEventListener('click', generateFromUploadedData);
   el('computeBtn').addEventListener('click', runComputations);
   el('addPlanetRowBtn').addEventListener('click', () => { state.planets.push(blankPlanet()); renderPlanetTable(); });
   el('addCuspRowBtn').addEventListener('click', () => { state.cusps.push(blankCusp(state.cusps.length + 1)); renderCuspTable(); });
@@ -98,7 +99,6 @@ function init() {
   initHoraryTab();
   initEventPromiseTab();
   initCuspalLinksTab();
-  initLocationSelectors();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -565,6 +565,10 @@ function loadSampleData() {
 function handleUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
+  processUploadedFile(file);
+}
+
+function processUploadedFile(file) {
   const isExcel = /\.xlsx$/i.test(file.name);
   const reader = new FileReader();
 
@@ -598,6 +602,21 @@ function handleUpload(e) {
 
   if (isExcel) reader.readAsArrayBuffer(file);
   else reader.readAsText(file);
+}
+
+// "Generate" button next to the file chooser: (re)loads whichever file is
+// currently selected and computes every report in the app that runs off
+// the Planets/Cusps tables (significators, ruling planets, dasha, life
+// topics, D1/D9/KP charts — same set runComputations() always covers). If
+// no file is selected, it just recomputes from whatever is already in the
+// Planets/Cusps tables (e.g. after manual edits), instead of doing nothing.
+function generateFromUploadedData() {
+  const file = el('uploadInput').files[0];
+  if (file) {
+    processUploadedFile(file);
+  } else {
+    runComputations();
+  }
 }
 
 // Expects an .xlsx workbook with three sheets:
@@ -1851,15 +1870,6 @@ function renderEventPromiseTableHtml(title, table) {
 }
 
 // Two independent LocationSelector instances sharing the same
-// locationService.js search/database — Native/Birth Location feeds the
-// existing birthLat/birthLon/timezoneMode/ianaZone fields (which already
-// drive the entire natal-chart pipeline via generateFullChart(), unchanged);
-// Astrologer's Location feeds astroLat/astroLon (Live Ruling Planets) and
-// horaryLat/horaryLon/horaryIanaZone (Horary Prediction's judgment place).
-// Selecting one never touches the other's fields.
-let nativeLocationSelector = null;
-let astrologerLocationSelector = null;
-
 // Sets a <select> of IANA timezone options to `zone`, adding it as an
 // option first if it isn't already listed. Needed because
 // Intl.supportedValuesOf('timeZone') can enumerate an older alias for the
@@ -1875,47 +1885,6 @@ function setIanaZoneSelectValue(selectEl, zone) {
     selectEl.appendChild(opt);
   }
   selectEl.value = zone;
-}
-
-function initLocationSelectors() {
-  preloadLocationDb();
-  el('locationServiceLogicOutput').innerHTML = renderLogicDetails(LOCATION_SERVICE_LOGIC_TEXT) + renderLogicDetails(LOCATION_SELECTOR_LOGIC_TEXT);
-
-  nativeLocationSelector = createLocationSelector({
-    containerId: 'nativeLocationContainer', label: 'Birth Place', showCurrentLocationButton: false,
-    onSelect: loc => {
-      el('birthLat').value = loc.latitude;
-      el('birthLon').value = loc.longitude;
-      if (loc.timezone) {
-        el('timezoneMode').value = 'iana';
-        setIanaZoneSelectValue(el('ianaZone'), loc.timezone);
-        toggleTimezoneModeInputs();
-      }
-      BIRTH_INPUT_IDS.forEach(id => {
-        el(id).classList.remove('birth-input-reset', 'birth-input-submitted');
-        el(id).classList.add('birth-input-pending');
-      });
-      saveDefaultBirthDetails();
-      el('statusMsg').textContent = `Birth place set to ${loc.name || 'manual coordinates'}. Enter birth date/time, then click "Generate Full Chart".`;
-    }
-  });
-
-  astrologerLocationSelector = createLocationSelector({
-    containerId: 'astrologerLocationContainer', label: "Astrologer's Location", showCurrentLocationButton: true,
-    onSelect: loc => {
-      el('astroLat').value = loc.latitude;
-      el('astroLon').value = loc.longitude;
-      el('horaryLat').value = loc.latitude;
-      el('horaryLon').value = loc.longitude;
-      if (loc.timezone) {
-        el('horaryTimezoneMode').value = 'iana';
-        setIanaZoneSelectValue(el('horaryIanaZone'), loc.timezone);
-        el('horaryIanaZoneLabel').hidden = false;
-        el('horaryUtcOffsetLabel').hidden = true;
-      }
-      el('statusMsg').textContent = `Astrologer's location set to ${loc.name || 'manual coordinates'}. Click "Start Live Ruling Planets Display" (or re-run Horary/Cuspal Interlinks) to apply.`;
-    }
-  });
 }
 
 function initCuspalLinksTab() {

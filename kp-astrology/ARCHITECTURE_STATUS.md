@@ -5,6 +5,31 @@ clear what's real vs. deferred at any point.
 
 ## Done
 
+- **Location search removed, per explicit request**: the worldwide
+  GeoNames-based location-selector feature (search box, dropdown, offline
+  SQLite database, "Use My Current Location") built earlier has been fully
+  removed — it was taking too long to load and isn't needed. Deleted:
+  `js/locationService.js`, `js/locationSelector.js`, `js/sqljs/` (the sql.js
+  WASM runtime), and the entire `geo/` folder (build scripts, `places.db`,
+  `places-india.db`, docs). Removed from `index.html`/`js/ui.js`: the two
+  location-selector containers, their script tags, and `initLocationSelectors()`.
+  Birth Place and Astrologer's Location are back to plain manual
+  latitude/longitude entry only (the fields were always there underneath
+  the selector, so nothing else changed) — `setIanaZoneSelectValue()` is
+  kept since `loadDefaultBirthDetails()` still uses it for the timezone
+  `<select>`.
+- **"Generate" button next to the file upload control** (`index.html`,
+  Main tab controls; `generateFromUploadedData()` in `js/ui.js`): lets you
+  explicitly (re-)trigger full computation instead of relying only on the
+  file input's automatic `change` event (which still also works, unchanged).
+  Clicking it re-reads whichever file is currently selected in the upload
+  box and reruns the same pipeline as before (parse → Planets/Cusps tables →
+  `runComputations()` — significators, ruling planets, Vimshottari dasha,
+  life-topic analysis, planetary relations, D1/D9/KP charts); if no file is
+  selected, it recomputes from whatever is already in the Planets/Cusps
+  tables instead of doing nothing (useful after manually editing a cell).
+  `handleUpload()` was split so both the automatic `change` handler and this
+  button share one `processUploadedFile()` implementation.
 - **D1 / D9 / KP Charts** (`js/vedicCharts.js`, "Charts" tab): visual Rasi
   (D1), Navamsa (D9), and KP charts, each selectable in South Indian
   (fixed sign grid) or North Indian (diamond, fixed house positions, SVG)
