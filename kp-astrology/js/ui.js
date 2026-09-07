@@ -607,16 +607,30 @@ function processUploadedFile(file) {
 // "Generate" button next to the file chooser: (re)loads whichever file is
 // currently selected and computes every report in the app that runs off
 // the Planets/Cusps tables (significators, ruling planets, dasha, life
-// topics, D1/D9/KP charts — same set runComputations() always covers). If
-// no file is selected, it just recomputes from whatever is already in the
-// Planets/Cusps tables (e.g. after manual edits), instead of doing nothing.
+// topics, D1/D9/KP charts — same set runComputations() always covers).
+// - If a file is already selected in the box, (re)process it.
+// - Else if the Planets/Cusps tables already have data (manual entry, or a
+//   file loaded earlier), just recompute from that.
+// - Else there is nothing to generate from yet — open the file picker
+//   itself instead of silently doing nothing, so a user who clicks
+//   "Generate" before ever choosing a file still gets somewhere in one
+//   click; the file is processed automatically as soon as they pick one.
 function generateFromUploadedData() {
-  const file = el('uploadInput').files[0];
+  const uploadInput = el('uploadInput');
+  const file = uploadInput.files[0];
   if (file) {
     processUploadedFile(file);
-  } else {
-    runComputations();
+    return;
   }
+  const hasTableData = state.planets.some(p => p.name) && state.cusps.some(c => c.house);
+  if (hasTableData) {
+    runComputations();
+    return;
+  }
+  // uploadInput already has its own 'change' listener (handleUpload) that
+  // processes whatever gets picked, so just opening the dialog is enough.
+  el('statusMsg').textContent = 'Choose a file to upload...';
+  uploadInput.click();
 }
 
 // Expects an .xlsx workbook with three sheets:

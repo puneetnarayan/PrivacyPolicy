@@ -29,7 +29,16 @@ clear what's real vs. deferred at any point.
   selected, it recomputes from whatever is already in the Planets/Cusps
   tables instead of doing nothing (useful after manually editing a cell).
   `handleUpload()` was split so both the automatic `change` handler and this
-  button share one `processUploadedFile()` implementation.
+  button share one `processUploadedFile()` implementation. **Bug fix**: the
+  button originally did nothing (no error, no update) when clicked before
+  any file had ever been chosen and the Planets/Cusps tables were still
+  empty (e.g. right after "Reset All", or on a fresh page load) — it fell
+  through to `runComputations()`, which just showed a guard message with no
+  visible change. It now opens the file picker itself in that case (the
+  input's own existing `change` handler then processes whatever gets
+  chosen), so clicking "Generate" always leads somewhere in one click; the
+  "file already selected" and "table already has manually-entered data"
+  cases behave as before.
 - **D1 / D9 / KP Charts** (`js/vedicCharts.js`, "Charts" tab): visual Rasi
   (D1), Navamsa (D9), and KP charts, each selectable in South Indian
   (fixed sign grid) or North Indian (diamond, fixed house positions, SVG)
