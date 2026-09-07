@@ -84,6 +84,7 @@
   <button class="tab-button" id="tabBtnHorary" data-tab="tabHorary">Horary Prediction</button>
   <button class="tab-button" id="tabBtnEventPromise" data-tab="tabEventPromise">Auto Predicted Event Promise</button>
   <button class="tab-button" id="tabBtnCuspalLinks" data-tab="tabCuspalLinks">Cuspal Interlinks</button>
+  <button class="tab-button" id="tabBtnDashaLevels" data-tab="tabDashaLevels">Vimshottari Dasha (4 Levels)</button>
   <button class="tab-button" id="tabBtnSettings" data-tab="tabSettings">Settings</button>
 </div>
 
@@ -434,6 +435,15 @@
 </div>
 
 <div id="cuspalLinksBox" class="output-box pastel-yellow"></div>
+</div>
+
+<div class="tab-panel" id="tabDashaLevels">
+<h2>Vimshottari Dasha (4 Levels)</h2>
+<p>Read-only display of the Vimshottari dasha for the currently loaded birth data (from the Chart &amp; Analysis tab — whether entered manually, auto-generated from birth details, or loaded from an uploaded file) — Mahadasha, Antardasha, Pratyantardasha, and Sookshmadasha. Click a period to expand its sub-periods. This tab does not compute or affect anything else; click Refresh after changing the birth data.</p>
+<div class="controls">
+  <button id="refreshDashaLevelsBtn">Refresh</button>
+</div>
+<div id="dashaLevelsOutput" class="output-box pastel-aqua"></div>
 </div>
 
 <div class="tab-panel" id="tabSettings">

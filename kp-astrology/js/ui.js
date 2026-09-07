@@ -99,6 +99,7 @@ function init() {
   initHoraryTab();
   initEventPromiseTab();
   initCuspalLinksTab();
+  initDashaLevelsTab();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -986,6 +987,53 @@ function renderPratyantarDetail(antar) {
   });
   html += '</tbody></table>';
   el('pratyantarDetail').innerHTML = html;
+}
+
+// "Vimshottari Dasha (4 Levels)" tab: a read-only, all-at-once nested view
+// of the same dasha computed for the Chart & Analysis tab's Moon Longitude
+// / Birth Date-Time (UTC) — but computed with levels:4 (adds Sookshmadasha,
+// the 4th level, on top of the Maha/Antar/Pratyantar the Main tab's
+// click-through view already shows) and rendered as nested <details> so
+// every level is present in the DOM and expandable without extra state or
+// re-fetching. Does not compute or affect anything else in the app.
+function initDashaLevelsTab() {
+  el('refreshDashaLevelsBtn').addEventListener('click', renderDashaLevelsTab);
+}
+
+function renderDashaLevelsTab() {
+  const moonLon = parseFloat(el('moonLongitude').value);
+  const birthStr = el('birthDateTime').value;
+  if (isNaN(moonLon) || !birthStr) {
+    el('dashaLevelsOutput').innerHTML = '<p>Enter Moon Longitude and Birth Date/Time (UTC) in the Chart &amp; Analysis tab (or Auto-Generate/upload a chart there) first, then click Refresh here.</p>';
+    return;
+  }
+
+  const birthDateTime = new Date(birthStr);
+  const dasha = computeVimshottariDasha(moonLon, birthDateTime, { levels: 4 });
+  const fmt = d => d.toISOString().slice(0, 10);
+
+  let html = renderLogicDetails(DASHA_LOGIC_TEXT);
+  html += `<p><strong>Birth Nakshatra:</strong> ${dasha.birthNakshatra.name} (Star Lord: ${dasha.birthNakshatra.starLord})</p>`;
+  html += `<p><strong>Dasha Balance at Birth:</strong> ${dasha.balance.years}y ${dasha.balance.months}m ${dasha.balance.days}d</p>`;
+  html += '<p style="font-size:0.85em;color:#666;">Click any period to expand its sub-periods, down to Sookshmadasha (4th level).</p>';
+  html += dasha.mahadashas.map(m => renderDashaLevelNode(m, 0, fmt)).join('');
+  el('dashaLevelsOutput').innerHTML = html;
+}
+
+// childKeys[depth] names the array holding the next level down; depth 3
+// (Sookshmadasha) has no further children, so recursion bottoms out there.
+const DASHA_LEVEL_CHILD_KEYS = ['antardashas', 'pratyantardashas', 'sookshmadashas'];
+const DASHA_LEVEL_NAMES = ['Mahadasha', 'Antardasha', 'Pratyantardasha', 'Sookshmadasha'];
+
+function renderDashaLevelNode(period, depth, fmt) {
+  const label = `${period.lord} ${DASHA_LEVEL_NAMES[depth]}: ${fmt(period.start)} – ${fmt(period.end)}`;
+  const childKey = DASHA_LEVEL_CHILD_KEYS[depth];
+  const children = childKey ? period[childKey] : null;
+  const indent = `margin-left:${depth * 18}px;`;
+  if (!children || !children.length) {
+    return `<div style="${indent}padding:2px 0;">${label}</div>`;
+  }
+  return `<details style="${indent}"><summary>${label}</summary>${children.map(c => renderDashaLevelNode(c, depth + 1, fmt)).join('')}</details>`;
 }
 
 // Each life topic gets its own pastel-colored card, cycled through this list.

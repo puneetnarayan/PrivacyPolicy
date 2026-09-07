@@ -39,6 +39,22 @@ clear what's real vs. deferred at any point.
   chosen), so clicking "Generate" always leads somewhere in one click; the
   "file already selected" and "table already has manually-entered data"
   cases behave as before.
+- **"Vimshottari Dasha (4 Levels)" tab**, placed right before Settings
+  (`index.html`; `initDashaLevelsTab()`/`renderDashaLevelsTab()` in
+  `js/ui.js`): a read-only, all-at-once nested view of the same dasha
+  computed for whatever birth data is currently loaded in the Chart &
+  Analysis tab (manual entry, Auto-Generate, or uploaded file) — reuses
+  `computeVimshottariDasha()` unchanged, just called with `levels: 4`
+  instead of the Main tab's `levels: 3`, to also compute the 4th level
+  (Sookshmadasha) that the Main tab's own click-through dasha view doesn't
+  go to. Rendered as nested `<details>` elements (Mahadasha → Antardasha →
+  Pratyantardasha → Sookshmadasha), so the whole 4-level tree exists in the
+  page and is expandable by clicking, with no separate click-handler
+  wiring needed per level. Has its own "Refresh" button (same pattern as
+  the Charts tab) — it does not auto-update when the chart changes, and it
+  does not feed back into or affect any other tab's calculation. Verified
+  with a Playwright test confirming exactly 9 periods appear at each of
+  the 4 levels for a real generated chart.
 - **D1 / D9 / KP Charts** (`js/vedicCharts.js`, "Charts" tab): visual Rasi
   (D1), Navamsa (D9), and KP charts, each selectable in South Indian
   (fixed sign grid) or North Indian (diamond, fixed house positions, SVG)
