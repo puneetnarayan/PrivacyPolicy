@@ -5,6 +5,45 @@ clear what's real vs. deferred at any point.
 
 ## Done
 
+- **"Profession & Career" tab** (placed after Comparative Analysis, before
+  Vimshottari Dasha): a Job vs. Business suitability engine plus three
+  functional signal checks and Vastu-style workspace direction guidance —
+  built to your exact specification. Additive only: new file
+  `js/careerTab.js`; `index.html`/`js/ui.js` changes are new tab
+  button/panel/script tag/CSS/init call only. No existing calculation
+  file touched.
+  - **Job vs. Business**: unions the significator houses of the 10th, 6th,
+    and 7th cusp Sub Lord chains (CSL + that lord's own Star Lord + Sub
+    Lord), scores them against Job (primary 2,6,10,11 / secondary 1,3) and
+    Business (primary 2,7,10,11 / secondary 3,9) house sets, and reports a
+    Job%/Business% bar plus a Primary Recommendation ("Strongly Suited for
+    Job/Business" or "Hybrid / Freelancing / Contractual" when the gap is
+    under 15 points). Career Obstacle houses (5,8,12) and the full
+    Resignation/Break combination (1,5,9) are tracked and shown
+    separately, not folded into the percentages.
+  - **Functional signals**: Interview & Scheduling (3rd cusp chain hits
+    5/8/12 without 10/11 support), Payment & Cashflow Risk (2nd/11th
+    chain hits 5/8 without 2/11 support — recommends collecting advance
+    payments when flagged), Foreign/Offsite Potential (6th/10th chain
+    hits at least 2 of 9/12/3) — each rendered as a clearly flagged/OK
+    signal card, never a silent pass/fail.
+  - **Workspace direction**: 10th cusp sign (falling back to 2nd, then
+    11th) mapped by element to a direction (Fire→East, Earth→South,
+    Air→West, Water→North).
+  - UI: percentage bar, positive/negative house pill tags, signal cards,
+    and a practical-advice box — reusing the app's existing
+    pastel/output-box visual language, no new framework (built in this
+    app's actual stack — plain HTML/CSS/JS — not React/TypeScript, since
+    the request's own constraints rule out introducing a framework).
+  - **Explicitly flagged as one specific, documented rule set** (per your
+    own spec) — not independently verified against a published KP
+    career-analysis reference, and deliberately kept separate from the
+    KP Default/Four-Step/Khullar/Bhaskaran/Naadi tabs' own significator
+    logic (same caveat convention every other methodology tab uses).
+  - Verified via Playwright: all four UI sections render real computed
+    data (Job/Business bar summing to 100%, 8 house pills, 3 signal
+    cards, workspace direction resolved), no page errors, and the full
+    existing regression suite still passes unchanged.
 - **KP Default, Event Analysis, and Comparative Analysis tabs** — the
   remaining three tabs from the original methodology-tabs spec, completing
   it alongside the four already built. Additive only: new files

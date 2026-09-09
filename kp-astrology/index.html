@@ -100,6 +100,21 @@
   .event-btn.selected { background-color: #b98cf2; color: #fff; border-color: #9a6bd8; font-weight: bold; }
   .event-result-card { margin: 10px 0; }
   .event-result-card summary { cursor: pointer; font-weight: bold; padding: 6px 0; }
+
+  /* Profession & Career tab: percentage bar, pill tags, and signal cards —
+     reusing the app's existing pastel/output-box look, not a new style. */
+  .career-bar { display: flex; height: 26px; border-radius: 6px; overflow: hidden; border: 1px solid rgba(0,0,0,0.15); margin: 8px 0; }
+  .career-bar-job { background-color: #7fb3e8; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.8em; font-weight: bold; }
+  .career-bar-business { background-color: #f0a860; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.8em; font-weight: bold; }
+  .career-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .career-pill { padding: 3px 10px; border-radius: 999px; font-size: 0.8em; font-weight: bold; border: 1px solid rgba(0,0,0,0.15); }
+  .career-pill-positive-active { background-color: #cdeccb; color: #205020; }
+  .career-pill-positive-inactive { background-color: #eee; color: #999; }
+  .career-pill-negative-active { background-color: #f8cccc; color: #7a1f1f; }
+  .career-pill-negative-inactive { background-color: #eee; color: #999; }
+  .career-signal { padding: 8px 12px; border-radius: 6px; margin: 6px 0; border-left: 4px solid #999; }
+  .career-signal-flagged { border-left-color: #c62828; background-color: #fdecea; }
+  .career-signal-ok { border-left-color: #2e7d32; background-color: #eaf7e0; }
 </style>
 </head>
 <body>
@@ -122,6 +137,7 @@
   <button class="tab-button" id="tabBtnNaadi" data-tab="tabNaadi">Naadi Significators</button>
   <button class="tab-button" id="tabBtnEventAnalysis" data-tab="tabEventAnalysis">Event Analysis</button>
   <button class="tab-button" id="tabBtnComparativeAnalysis" data-tab="tabComparativeAnalysis">Comparative Analysis</button>
+  <button class="tab-button" id="tabBtnCareer" data-tab="tabCareer">Profession &amp; Career</button>
   <button class="tab-button" id="tabBtnDashaLevels" data-tab="tabDashaLevels">Vimshottari Dasha (4 Levels)</button>
   <button class="tab-button" id="tabBtnSettings" data-tab="tabSettings">Settings</button>
 </div>
@@ -547,6 +563,14 @@
 <div id="comparativeAnalysisOutput"></div>
 </div>
 
+<div class="tab-panel" id="tabCareer">
+<h2>Profession &amp; Career</h2>
+<p>Uses the CURRENTLY LOADED chart (Chart &amp; Analysis tab). Job vs. Business suitability from the 10th/6th/7th cusp Sub Lord chains, plus interview/scheduling, payment-risk, and foreign/offsite signal checks, and Vastu-style workspace direction from the 10th (or 2nd/11th) cusp sign. This is one specific, documented rule set — see the logic notes below — not settled classical doctrine, and is kept separate from the KP Default/Four-Step/Khullar/Bhaskaran/Naadi tabs' own significator logic.</p>
+<div id="careerLogicOutput"></div>
+<div class="controls"><button id="refreshCareerBtn">Refresh</button></div>
+<div id="careerOutput"></div>
+</div>
+
 <div class="tab-panel" id="tabDashaLevels">
 <h2>Vimshottari Dasha (4 Levels)</h2>
 <p>Read-only display of the Vimshottari dasha for the currently loaded birth data (from the Chart &amp; Analysis tab — whether entered manually, auto-generated from birth details, or loaded from an uploaded file) — Mahadasha, Antardasha, Pratyantardasha, and Sookshmadasha. Click a period to expand its sub-periods. This tab does not compute or affect anything else; click Refresh after changing the birth data.</p>
@@ -614,6 +638,7 @@
 <script src="js/naadiSignificators.js"></script>
 <script src="js/eventAnalysisTab.js"></script>
 <script src="js/comparativeAnalysisTab.js"></script>
+<script src="js/careerTab.js"></script>
 <script src="js/vedicCharts.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/updater.js"></script>

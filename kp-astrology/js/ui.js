@@ -107,6 +107,7 @@ function init() {
   initNaadiTab();
   initEventAnalysisTab();
   initComparativeAnalysisTab();
+  initCareerTab();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -1501,6 +1502,76 @@ function renderComparativeAnalysisTab() {
     html += '</tbody></table>';
   });
   el('comparativeAnalysisOutput').innerHTML = html;
+}
+
+// === Profession & Career ===
+function initCareerTab() {
+  el('careerLogicOutput').innerHTML = renderLogicDetails(CAREER_LOGIC_TEXT);
+  el('refreshCareerBtn').addEventListener('click', renderCareerTab);
+}
+
+function careerPillHtml(house, active, positive) {
+  const cls = `career-pill ${positive ? 'career-pill-positive' : 'career-pill-negative'}-${active ? 'active' : 'inactive'}`;
+  return `<span class="${cls}">${house}</span>`;
+}
+
+function renderCareerTab() {
+  const chartData = buildMethodologyChartData();
+  if (!chartData) { el('careerOutput').innerHTML = noChartLoadedHtml('Profession & Career'); return; }
+
+  const birthStr = el('birthDateTime').value;
+  const birthDateTime = birthStr ? new Date(birthStr) : null;
+  const a = analyzeCareer(chartData, birthDateTime);
+  const jb = a.jobVsBusiness;
+
+  // 1. Header Overview
+  let html = '<h3>Overview</h3>';
+  html += `<p><strong>Primary Recommendation: ${jb.recommendation}</strong></p>`;
+  html += `<div class="career-bar">
+    <div class="career-bar-job" style="width:${jb.jobPct}%;">${jb.jobPct > 12 ? 'Job ' + jb.jobPct + '%' : ''}</div>
+    <div class="career-bar-business" style="width:${jb.businessPct}%;">${jb.businessPct > 12 ? 'Business ' + jb.businessPct + '%' : ''}</div>
+  </div>`;
+  if (jb.obstacleScore > 0) {
+    html += `<p style="color:#a04000;">Career Obstacle signal present (houses ${houseListText(jb.negativeHits)})${jb.resignationComboComplete ? ' — full Resignation/Break combination (1,5,9) is active.' : '.'}</p>`;
+  }
+
+  // 2. Key House Analysis Card
+  html += '<h3>Key House Analysis</h3><div class="output-box pastel-blue">';
+  html += '<p>Positive (Job/Business) houses:</p><div class="career-pills">';
+  [2, 6, 7, 10, 11].forEach(h => { html += careerPillHtml(h, jb.unionHouses.includes(h), true); });
+  html += '</div><p>Obstacle houses:</p><div class="career-pills">';
+  [5, 8, 12].forEach(h => { html += careerPillHtml(h, jb.unionHouses.includes(h), false); });
+  html += '</div>';
+  html += `<p style="font-size:0.85em;color:#666;">From the 10th CSL (${abbr(jb.chain10.csl)}), 6th CSL (${abbr(jb.chain6.csl)}), and 7th CSL (${abbr(jb.chain7.csl)}) chains — combined significator houses: ${houseListText(jb.unionHouses)}.</p>`;
+  html += '</div>';
+
+  // 3. Actionable Career Signals
+  html += '<h3>Actionable Career Signals</h3>';
+  [
+    ['Interview & Scheduling', a.interview],
+    ['Payment & Cashflow', a.paymentRisk],
+    ['Foreign / Offsite Opportunity', a.foreignOpportunity]
+  ].forEach(([label, signal]) => {
+    html += `<div class="career-signal ${signal.flagged ? 'career-signal-flagged' : 'career-signal-ok'}"><strong>${label}:</strong> ${signal.message}</div>`;
+  });
+
+  // 4. Practical Advice & Directional Guidance
+  html += '<h3>Practical Advice &amp; Directional Guidance</h3><div class="output-box pastel-mint">';
+  if (a.paymentRisk.flagged) html += '<p>💡 Collect advance payments where possible; avoid fully deferred/back-loaded payment terms.</p>';
+  if (a.interview.flagged) html += '<p>💡 Build schedule buffers around interviews/appointments; confirm timings a day ahead.</p>';
+  if (a.foreignOpportunity.flagged) html += '<p>💡 Actively explore remote/foreign-client or overseas-transfer options — the chart supports it.</p>';
+  const wd = a.workspaceDirection;
+  html += wd.direction
+    ? `<p><strong>Workspace Direction:</strong> ${wd.sign} (house ${wd.house}, ${wd.element} element) → face/seat toward <strong>${wd.direction}</strong> for office/business setups.</p>`
+    : '<p><strong>Workspace Direction:</strong> Not available — 10th/2nd/11th cusp sign not found in the currently loaded chart.</p>';
+  html += '</div>';
+
+  // Current Dasha context (optional, if available)
+  if (a.dashaAvailable) {
+    html += `<p style="font-size:0.85em;color:#666;">Current running periods: Mahadasha ${abbr(a.runningLords.mahadasha)} / Antardasha ${abbr(a.runningLords.antardasha)} / Pratyantardasha ${abbr(a.runningLords.pratyantardasha)}.</p>`;
+  }
+
+  el('careerOutput').innerHTML = html;
 }
 
 // Each life topic gets its own pastel-colored card, cycled through this list.
