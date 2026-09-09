@@ -116,6 +116,13 @@ function init() {
   toggleTimezoneModeInputs();
 
   loadDefaultBirthDetails();
+  // Auto-generate the chart immediately on page load — using whatever
+  // birth details are already present (the user's own saved details from
+  // localStorage, or this app's baked-in defaults otherwise) — so every
+  // tab is already populated the moment the app opens, instead of
+  // requiring a first manual "Generate Full Chart"/"Default Values" click
+  // just to see any results at all.
+  generateFullChart();
   BIRTH_INPUT_IDS.forEach(id => {
     el(id).classList.add('birth-input-pending');
     el(id).addEventListener('input', () => {
@@ -870,11 +877,38 @@ function runComputations() {
     renderLifeTopics(lifeTopics);
 
     renderAllVedicCharts();
+    refreshAllAnalysisTabs();
 
     el('statusMsg').textContent = 'Computation complete.';
   } catch (err) {
     el('statusMsg').textContent = 'Error: ' + err.message;
     console.error(err);
+  }
+}
+
+// Auto-populates every KP methodology/analysis tab the moment a chart is
+// generated/uploaded/edited (runComputations() is the single place all of
+// those entry points funnel through — Generate Full Chart, Default
+// Values, file upload/Generate button, and the manual "Compute KP
+// Analysis" button). Previously each of these tabs only rendered when its
+// own "Refresh" button was clicked; the Refresh buttons remain (useful
+// after switching tabs without re-submitting data, or to force a re-run),
+// but nothing now requires a manual click just to see first results. Each
+// call is wrapped separately so one tab's error can't block the others —
+// mirrors runComputations()'s own per-section resilience above.
+function refreshAllAnalysisTabs() {
+  [
+    renderKpDefaultTab, renderFourStepTab, renderKhullarTab, renderBhaskaranTab, renderNaadiTab,
+    renderCareerTab, renderDashaLevelsTab
+  ].forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
+
+  // Event Analysis / Comparative Analysis are selection-driven (button
+  // grid) — only re-render their result areas if the user already has
+  // event(s) selected, so an empty selection doesn't get overwritten with
+  // a "select an event" message every time the chart is recomputed.
+  if (typeof selectedEventKeys !== 'undefined' && selectedEventKeys.size) {
+    try { renderEventAnalysisResults(); } catch (e) { console.error(e); }
+    try { renderComparativeAnalysisTab(); } catch (e) { console.error(e); }
   }
 }
 
@@ -1515,6 +1549,32 @@ function careerPillHtml(house, active, positive) {
   return `<span class="${cls}">${house}</span>`;
 }
 
+// Renders one cusp's CSL chain as an auditable step: the cusp itself, its
+// Sub Lord (CSL), that lord's own Star/Sub Lord, and — for every planet in
+// the chain — the exact significator houses significators.js's reverse
+// lookup returned for it, before they get unioned into one list. This is
+// the same chain data careerTab.js already computed (careerCuspChain()) —
+// nothing here is recalculated, only laid out step by step.
+function careerChainStepHtml(chain, significators, label) {
+  const cusp = chain.house;
+  let html = `<p><strong>${label} — House ${cusp} Cusp Sub Lord (CSL):</strong> ${abbr(chain.csl)}</p>`;
+  html += `<ul style="margin:2px 0 6px;">`;
+  html += `<li>${abbr(chain.csl)}'s own Star Lord: <strong>${abbr(chain.cslStarLord)}</strong></li>`;
+  html += `<li>${abbr(chain.csl)}'s own Sub Lord: <strong>${abbr(chain.cslSubLord)}</strong></li>`;
+  html += `</ul>`;
+  html += `<p style="margin:2px 0;">Significator houses of each chain planet (from the significator engine, unchanged):</p><ul style="margin:2px 0 6px;">`;
+  chain.chainPlanets.forEach(p => {
+    html += `<li>${abbr(p)} signifies: ${houseListText(planetSignificatorHouses(significators, p))}</li>`;
+  });
+  html += `</ul><p style="margin:2px 0;">Union of the above for this cusp's chain: <strong>${houseListText(chain.houses)}</strong></p>`;
+  return html;
+}
+
+function careerScoreStepHtml(scoreLabel, rule, score) {
+  return `<p style="margin:4px 0;"><strong>${scoreLabel}</strong> — Primary houses (${rule.primary.join(',')}) hit: ${houseListText(score.primaryHits)} (×2 each = ${score.primaryHits.length * 2}); ` +
+    `Secondary houses (${rule.secondary.join(',')}) hit: ${houseListText(score.secondaryHits)} (×1 each = ${score.secondaryHits.length}) → <strong>Score = ${score.score}</strong></p>`;
+}
+
 function renderCareerTab() {
   const chartData = buildMethodologyChartData();
   if (!chartData) { el('careerOutput').innerHTML = noChartLoadedHtml('Profession & Career'); return; }
@@ -1523,6 +1583,7 @@ function renderCareerTab() {
   const birthDateTime = birthStr ? new Date(birthStr) : null;
   const a = analyzeCareer(chartData, birthDateTime);
   const jb = a.jobVsBusiness;
+  const { significators } = chartData;
 
   // 1. Header Overview
   let html = '<h3>Overview</h3>';
@@ -1535,6 +1596,27 @@ function renderCareerTab() {
     html += `<p style="color:#a04000;">Career Obstacle signal present (houses ${houseListText(jb.negativeHits)})${jb.resignationComboComplete ? ' — full Resignation/Break combination (1,5,9) is active.' : '.'}</p>`;
   }
 
+  // 1a. How the Job vs. Business result was calculated — every step in
+  // order: identify the three CSL chains, list each chain planet's own
+  // significator houses, union them, score Job vs. Business against the
+  // documented house sets, then derive the percentages and threshold call.
+  html += `<details open><summary>How was the Job vs. Business result calculated?</summary>`;
+  html += `<p><strong>Step 1 — Identify the three cusp chains (10th, 6th, 7th) and their significator houses:</strong></p>`;
+  html += careerChainStepHtml(jb.chain10, significators, 'Chain A (10th cusp — career/status)');
+  html += careerChainStepHtml(jb.chain6, significators, 'Chain B (6th cusp — service/routine work)');
+  html += careerChainStepHtml(jb.chain7, significators, 'Chain C (7th cusp — partnership/business)');
+  html += `<p><strong>Step 2 — Union all three chains' houses:</strong> ${houseListText(jb.unionHouses)}</p>`;
+  html += `<p><strong>Step 3 — Score Job vs. Business against that combined house list:</strong></p>`;
+  html += careerScoreStepHtml('Job score', CAREER_HOUSE_RULES.job, jb.job);
+  html += careerScoreStepHtml('Business score', CAREER_HOUSE_RULES.business, jb.business);
+  const totalJB = jb.job.score + jb.business.score;
+  html += `<p><strong>Step 4 — Convert to percentages:</strong> Job% = ${jb.job.score} ÷ (${jb.job.score}+${jb.business.score}) × 100 = <strong>${jb.jobPct}%</strong>; Business% = 100 − ${jb.jobPct} = <strong>${jb.businessPct}%</strong>.${totalJB === 0 ? ' (Neither score has hits — defaulted to 50/50.)' : ''}</p>`;
+  html += `<p><strong>Step 5 — Apply the recommendation rule:</strong> |Job% − Business%| = ${Math.abs(jb.jobPct - jb.businessPct)}. ${Math.abs(jb.jobPct - jb.businessPct) < 15
+    ? 'This is under the 15-point threshold, so the result is read as "Hybrid / Freelancing / Contractual" rather than a one-sided call.'
+    : `This is 15 or more, so the higher side (${jb.jobPct > jb.businessPct ? 'Job' : 'Business'}) is called: "${jb.recommendation}".`}</p>`;
+  html += `<p><strong>Step 6 — Career Obstacle check (from the same union of houses):</strong> Obstacle houses (5,8,12) hit: ${houseListText(jb.negativeHits)} (×2 each = ${jb.negativeHits.length * 2}); Resignation/Break combination (1,5,9) ${jb.resignationComboComplete ? 'is FULLY present (+3)' : `only partially present (${houseListText(jb.resignationComboHits)}, +0)`} → <strong>Obstacle score = ${jb.obstacleScore}</strong>. This is reported separately and does not change the Job/Business percentages above.</p>`;
+  html += `</details>`;
+
   // 2. Key House Analysis Card
   html += '<h3>Key House Analysis</h3><div class="output-box pastel-blue">';
   html += '<p>Positive (Job/Business) houses:</p><div class="career-pills">';
@@ -1542,18 +1624,27 @@ function renderCareerTab() {
   html += '</div><p>Obstacle houses:</p><div class="career-pills">';
   [5, 8, 12].forEach(h => { html += careerPillHtml(h, jb.unionHouses.includes(h), false); });
   html += '</div>';
-  html += `<p style="font-size:0.85em;color:#666;">From the 10th CSL (${abbr(jb.chain10.csl)}), 6th CSL (${abbr(jb.chain6.csl)}), and 7th CSL (${abbr(jb.chain7.csl)}) chains — combined significator houses: ${houseListText(jb.unionHouses)}.</p>`;
+  html += `<p style="font-size:0.85em;color:#666;">From the 10th CSL (${abbr(jb.chain10.csl)}), 6th CSL (${abbr(jb.chain6.csl)}), and 7th CSL (${abbr(jb.chain7.csl)}) chains — combined significator houses: ${houseListText(jb.unionHouses)}. (Same union as Step 2 above.)</p>`;
   html += '</div>';
 
-  // 3. Actionable Career Signals
+  // 3. Actionable Career Signals — each with its own inline "how this was
+  // determined" trace, showing the exact chain and condition evaluated.
   html += '<h3>Actionable Career Signals</h3>';
-  [
-    ['Interview & Scheduling', a.interview],
-    ['Payment & Cashflow', a.paymentRisk],
-    ['Foreign / Offsite Opportunity', a.foreignOpportunity]
-  ].forEach(([label, signal]) => {
-    html += `<div class="career-signal ${signal.flagged ? 'career-signal-flagged' : 'career-signal-ok'}"><strong>${label}:</strong> ${signal.message}</div>`;
-  });
+
+  html += `<div class="career-signal ${a.interview.flagged ? 'career-signal-flagged' : 'career-signal-ok'}"><strong>Interview &amp; Scheduling:</strong> ${a.interview.message}`;
+  html += `<details><summary>How was this calculated?</summary><p>Chain checked: 3rd cusp Sub Lord + that lord's own Star Lord (${a.interview.chainPlanets.map(abbr).join(', ') || '—'}) → significator houses: ${houseListText(a.interview.houses)}.</p>` +
+    `<p>Condition: signifies an obstacle house (5, 8, or 12) <strong>AND</strong> does NOT signify a support house (10 or 11). ` +
+    `Obstacle hit: ${a.interview.houses.some(h => [5, 8, 12].includes(h)) ? 'yes' : 'no'}; Support hit: ${a.interview.houses.some(h => [10, 11].includes(h)) ? 'yes' : 'no'} → Flagged: <strong>${a.interview.flagged ? 'YES' : 'no'}</strong>.</p></details></div>`;
+
+  html += `<div class="career-signal ${a.paymentRisk.flagged ? 'career-signal-flagged' : 'career-signal-ok'}"><strong>Payment &amp; Cashflow:</strong> ${a.paymentRisk.message}`;
+  html += `<details><summary>How was this calculated?</summary>` +
+    careerChainStepHtml(a.paymentRisk.chain2, significators, '2nd cusp chain') +
+    careerChainStepHtml(a.paymentRisk.chain11, significators, '11th cusp chain') +
+    `<p>Combined financial-script houses: ${houseListText(a.paymentRisk.financeHouses)}. Condition: signifies 5 or 8 <strong>AND</strong> does NOT signify 2 or 11 → Flagged: <strong>${a.paymentRisk.flagged ? 'YES' : 'no'}</strong>.</p></details></div>`;
+
+  html += `<div class="career-signal ${a.foreignOpportunity.flagged ? 'career-signal-flagged' : 'career-signal-ok'}"><strong>Foreign / Offsite Opportunity:</strong> ${a.foreignOpportunity.message}`;
+  html += `<details><summary>How was this calculated?</summary><p>Combined 6th+10th cusp chain houses: ${houseListText(a.foreignOpportunity.houses)}.</p>` +
+    `<p>Condition: at least 2 of houses {9, 12, 3} present — matched: ${houseListText(a.foreignOpportunity.hits)} (${a.foreignOpportunity.hits.length} of 3) → Flagged: <strong>${a.foreignOpportunity.flagged ? 'YES' : 'no'}</strong>.</p></details></div>`;
 
   // 4. Practical Advice & Directional Guidance
   html += '<h3>Practical Advice &amp; Directional Guidance</h3><div class="output-box pastel-mint">';
@@ -1562,7 +1653,8 @@ function renderCareerTab() {
   if (a.foreignOpportunity.flagged) html += '<p>💡 Actively explore remote/foreign-client or overseas-transfer options — the chart supports it.</p>';
   const wd = a.workspaceDirection;
   html += wd.direction
-    ? `<p><strong>Workspace Direction:</strong> ${wd.sign} (house ${wd.house}, ${wd.element} element) → face/seat toward <strong>${wd.direction}</strong> for office/business setups.</p>`
+    ? `<p><strong>Workspace Direction:</strong> ${wd.sign} (house ${wd.house}, ${wd.element} element) → face/seat toward <strong>${wd.direction}</strong> for office/business setups.</p>
+       <details><summary>How was this calculated?</summary><p>Checked, in order: 10th cusp sign, then 2nd, then 11th — first one with a mapped sign wins. House ${wd.house}'s sign is <strong>${wd.sign}</strong>, a <strong>${wd.element}</strong> sign, which maps to <strong>${wd.direction}</strong> (Fire→East, Earth→South, Air→West, Water→North).</p></details>`
     : '<p><strong>Workspace Direction:</strong> Not available — 10th/2nd/11th cusp sign not found in the currently loaded chart.</p>';
   html += '</div>';
 

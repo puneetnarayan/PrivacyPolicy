@@ -5,6 +5,42 @@ clear what's real vs. deferred at any point.
 
 ## Done
 
+- **All analysis tabs auto-populate on data submit/load, plus a
+  step-by-step calculation trace on the Career tab** (`js/ui.js`): two
+  related UX fixes, both additive.
+  1. `runComputations()` — the single function every data-submission path
+     already funnels through (Generate Full Chart, Default Values, file
+     upload/Generate button, manual "Compute KP Analysis") — now also
+     calls a new `refreshAllAnalysisTabs()` at the end, which re-renders
+     KP Default, Four-Step, Khullar, Bhaskaran, Naadi, Career, and
+     Vimshottari Dasha (4 Levels) automatically (each wrapped separately
+     so one tab's error can't block the others). Event Analysis/
+     Comparative Analysis are selection-driven, so they only auto-refresh
+     if the user already has event(s) selected — an empty selection isn't
+     overwritten. Each tab's own "Refresh" button still works (e.g. to
+     force a re-run after switching tabs), it's just no longer the ONLY
+     way to see first results.
+  2. `init()` now calls `generateFullChart()` once automatically right
+     after birth details load (the user's own saved details from
+     localStorage, or this app's baked-in defaults) — so a brand-new page
+     load populates every tab immediately, with zero manual clicks,
+     verified via Playwright (planet table, significators, and all seven
+     auto-refreshed tabs all show real content on a fresh `page.goto()`
+     with no button clicks at all).
+  3. **Career tab step-by-step trace**: each result now has an inline,
+     expandable "How was this calculated?" section built entirely from
+     data the analysis functions already returned (no new calculation) —
+     the Job vs. Business result shows all 3 cusp chains' Star/Sub Lords
+     and each chain planet's own significator houses, the union, the
+     Job/Business scoring arithmetic (primary ×2 + secondary ×1), the
+     percentage conversion, the 15-point threshold check, and the
+     Obstacle/Resignation-combo scoring — in the same order the code
+     actually computes them. Each of the three signal cards (Interview,
+     Payment, Foreign) and the Workspace Direction result got the same
+     treatment, showing the exact chain/houses/condition that produced
+     that flag. Verified via Playwright: 4 "How was this calculated?"
+     sections render with real numbers substituted in, matching the
+     underlying analysis object's actual values.
 - **"Profession & Career" tab** (placed after Comparative Analysis, before
   Vimshottari Dasha): a Job vs. Business suitability engine plus three
   functional signal checks and Vastu-style workspace direction guidance —
