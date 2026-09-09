@@ -116,11 +116,65 @@ function buildMethodologyChartData() {
   return { planets, cusps, significators };
 }
 
+// Given a map of planetName -> houses-it-signifies (built differently per
+// methodology — KP Default/Naadi use significators.js's reverse lookup,
+// Four-Step uses only PRIMARY houses, Khullar/Bhaskaran use their own
+// "positional"/"significator" house lists), finds whichever planet connects
+// the most of `requiredHouses` — the shared "best connecting planet"
+// concept every methodology's own promise-check and Comparative Analysis
+// both need, kept in ONE place instead of five near-duplicates.
+function bestConnectingPlanet(housesMap, requiredHouses) {
+  let bestPlanet = null, bestHouses = [];
+  PLANET_NAMES.forEach(name => {
+    const houses = housesMap[name] || [];
+    const connected = requiredHouses.filter(h => houses.includes(h));
+    if (connected.length > bestHouses.length) { bestPlanet = name; bestHouses = connected; }
+  });
+  return { bestPlanet, housesConnected: bestHouses, fraction: requiredHouses.length ? bestHouses.length / requiredHouses.length : 0 };
+}
+
+// Translates a 0-1 connection fraction into the non-absolute language
+// Section 39 requires — used wherever a methodology's own promise-check
+// (not the existing numeric Astrological Activation Score, which has its
+// own EVENT_TIMING_THRESHOLDS wording) needs a plain-language verdict.
+const JUDGEMENT_BANDS = [
+  { min: 1, label: 'Strongly Supported' },
+  { min: 0.75, label: 'Supported' },
+  { min: 0.5, label: 'Moderately Supported' },
+  { min: 0.25, label: 'Mixed / Conditional' },
+  { min: 0.01, label: 'Weakly Supported' },
+  { min: 0, label: 'Not Supported' }
+];
+function judgementLanguage(fraction) {
+  const band = JUDGEMENT_BANDS.find(b => fraction >= b.min);
+  return band ? band.label : 'Insufficient Data';
+}
+
+// Calendar (Y-M-D-H) breakdown between two UTC instants, ignoring finer
+// than the hour — used for "Age at Event" (Section 19). Based directly on
+// the two instants' own UTC calendar fields (not converted to birth-place
+// local time, unlike the Vimshottari Dasha tab's display) — kept simple
+// and clearly documented as such in the UI, since the age question here is
+// "how much time elapsed", not "what did the clock read".
+function ageBreakdown(fromDateUtc, toDateUtc) {
+  const msDiff = toDateUtc.getTime() - fromDateUtc.getTime();
+  if (msDiff < 0) return null;
+  let years = toDateUtc.getUTCFullYear() - fromDateUtc.getUTCFullYear();
+  let months = toDateUtc.getUTCMonth() - fromDateUtc.getUTCMonth();
+  let days = toDateUtc.getUTCDate() - fromDateUtc.getUTCDate();
+  let hours = toDateUtc.getUTCHours() - fromDateUtc.getUTCHours();
+  if (hours < 0) { days--; hours += 24; }
+  if (days < 0) { months--; days += new Date(Date.UTC(toDateUtc.getUTCFullYear(), toDateUtc.getUTCMonth(), 0)).getUTCDate(); }
+  if (months < 0) { years--; months += 12; }
+  return { years, months, days, hours };
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     KP_METHODOLOGY_COMMON_LOGIC_TEXT, KP_HOUSE_NATURE,
     PLANET_ABBR, abbr,
     findPlanetRecord, housesOwnedBy, noPlanetInOwnStar, inOwnStar, planetNotation,
-    hasSupportAndObstructMix, nodeRepresentation, buildMethodologyChartData
+    hasSupportAndObstructMix, nodeRepresentation, buildMethodologyChartData,
+    bestConnectingPlanet, judgementLanguage, JUDGEMENT_BANDS, ageBreakdown
   };
 }

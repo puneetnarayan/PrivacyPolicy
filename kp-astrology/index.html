@@ -91,6 +91,15 @@
   .kp-planet-card th { width: 32%; text-align: left; white-space: nowrap; }
   .kp-retrograde { color: #c62828; font-weight: bold; }
   .kp-notation { font-weight: normal; color: #555; font-size: 0.8em; }
+
+  /* Event Analysis: category-grouped event buttons, selected state, and
+     one collapsible <details> result card per selected event. */
+  .event-category-group { margin-bottom: 10px; }
+  .event-category-group h4 { margin: 6px 0 4px; }
+  .event-btn { margin: 2px; }
+  .event-btn.selected { background-color: #b98cf2; color: #fff; border-color: #9a6bd8; font-weight: bold; }
+  .event-result-card { margin: 10px 0; }
+  .event-result-card summary { cursor: pointer; font-weight: bold; padding: 6px 0; }
 </style>
 </head>
 <body>
@@ -106,10 +115,13 @@
   <button class="tab-button" id="tabBtnHorary" data-tab="tabHorary">Horary Prediction</button>
   <button class="tab-button" id="tabBtnEventPromise" data-tab="tabEventPromise">Auto Predicted Event Promise</button>
   <button class="tab-button" id="tabBtnCuspalLinks" data-tab="tabCuspalLinks">Cuspal Interlinks</button>
+  <button class="tab-button" id="tabBtnKpDefault" data-tab="tabKpDefault">KP Default</button>
   <button class="tab-button" id="tabBtnFourStep" data-tab="tabFourStep">4-Step Theory</button>
   <button class="tab-button" id="tabBtnKhullar" data-tab="tabKhullar">S.P. Khullar</button>
   <button class="tab-button" id="tabBtnBhaskaran" data-tab="tabBhaskaran">K. Bhaskaran</button>
   <button class="tab-button" id="tabBtnNaadi" data-tab="tabNaadi">Naadi Significators</button>
+  <button class="tab-button" id="tabBtnEventAnalysis" data-tab="tabEventAnalysis">Event Analysis</button>
+  <button class="tab-button" id="tabBtnComparativeAnalysis" data-tab="tabComparativeAnalysis">Comparative Analysis</button>
   <button class="tab-button" id="tabBtnDashaLevels" data-tab="tabDashaLevels">Vimshottari Dasha (4 Levels)</button>
   <button class="tab-button" id="tabBtnSettings" data-tab="tabSettings">Settings</button>
 </div>
@@ -463,6 +475,14 @@
 <div id="cuspalLinksBox" class="output-box pastel-yellow"></div>
 </div>
 
+<div class="tab-panel" id="tabKpDefault">
+<h2>KP Default</h2>
+<p>Uses the CURRENTLY LOADED chart (Chart &amp; Analysis tab). An enhanced, auditable presentation of the app's existing standard KP significator engine — planet-wise significator table, node representation, detailed per-planet chains, planet/cusp signification tables, and the house-wise significator breakdown — introduces no new significator rule.</p>
+<div id="kpDefaultLogicOutput"></div>
+<div class="controls"><button id="refreshKpDefaultBtn">Refresh</button></div>
+<div id="kpDefaultOutput"></div>
+</div>
+
 <div class="tab-panel" id="tabFourStep">
 <h2>Four-Step Theory</h2>
 <p>Uses the CURRENTLY LOADED chart (Chart &amp; Analysis tab). For each planet: Step 1 (the planet itself), Step 2 (its Star Lord), Step 3 (its Sub Lord), Step 4 (the STAR LORD of that Sub Lord — not the planet's ordinary Sub-Sub Lord; these are kept as separate fields). Each step's houses are split into Primary (strong) and Secondary (weak) significations. This is a separate interpretation layer from the Chart &amp; Analysis tab's own KP significator table — results are never mixed between the two.</p>
@@ -493,6 +513,38 @@
 <div id="naadiLogicOutput"></div>
 <div class="controls"><button id="refreshNaadiBtn">Refresh</button></div>
 <div id="naadiOutput"></div>
+</div>
+
+<div class="tab-panel" id="tabEventAnalysis">
+<h2>Event Analysis</h2>
+<p>Uses the CURRENTLY LOADED chart (Chart &amp; Analysis tab). Click one or more event buttons below — each gets its own independent result card (Event Promise, relevant houses/cusps, Four-Step chain, current Dasha/Transit support, a plain-language Final Judgement, and future Timing Windows with the native's age at each window). Clicking a selected event again removes only that card.</p>
+<div id="eventAnalysisLogicOutput"></div>
+<fieldset>
+  <legend>Search Horizon (for Timing Windows)</legend>
+  <label>Search next:
+    <select id="eventAnalysisHorizon">
+      <option value="1">1 year</option>
+      <option value="3" selected>3 years</option>
+      <option value="5">5 years</option>
+      <option value="10">10 years</option>
+      <option value="20">20 years</option>
+    </select>
+  </label>
+</fieldset>
+<div class="controls">
+  <button id="eventAnalysisSelectAllBtn">Select All</button>
+  <button id="eventAnalysisClearAllBtn">Clear All</button>
+</div>
+<div id="eventAnalysisButtons"></div>
+<div id="eventAnalysisResults"></div>
+</div>
+
+<div class="tab-panel" id="tabComparativeAnalysis">
+<h2>Comparative Analysis</h2>
+<p>Compares KP Default, Four-Step Theory, S.P. Khullar, K. Bhaskaran, and Naadi Significators side by side, for whichever event(s) are currently selected in the Event Analysis tab. Not a vote-counting rule — each method's own reasoning is shown; the Overall row is a descriptive tally only.</p>
+<div id="comparativeAnalysisLogicOutput"></div>
+<div class="controls"><button id="refreshComparativeAnalysisBtn">Refresh</button></div>
+<div id="comparativeAnalysisOutput"></div>
 </div>
 
 <div class="tab-panel" id="tabDashaLevels">
@@ -555,10 +607,13 @@
 <script src="js/eventPromiseTable.js"></script>
 <script src="js/cuspalInterlinks.js"></script>
 <script src="js/kpMethodologyCommon.js"></script>
+<script src="js/kpDefaultTab.js"></script>
 <script src="js/fourStepTheory.js"></script>
 <script src="js/spKhullar.js"></script>
 <script src="js/kBhaskaran.js"></script>
 <script src="js/naadiSignificators.js"></script>
+<script src="js/eventAnalysisTab.js"></script>
+<script src="js/comparativeAnalysisTab.js"></script>
 <script src="js/vedicCharts.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/updater.js"></script>

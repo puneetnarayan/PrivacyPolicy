@@ -5,6 +5,65 @@ clear what's real vs. deferred at any point.
 
 ## Done
 
+- **KP Default, Event Analysis, and Comparative Analysis tabs** — the
+  remaining three tabs from the original methodology-tabs spec, completing
+  it alongside the four already built. Additive only: new files
+  `js/kpDefaultTab.js`, `js/eventAnalysisTab.js`, `js/comparativeAnalysisTab.js`;
+  `index.html`/`js/ui.js` changes are new tab buttons/panels/script
+  tags/init calls only, nothing existing removed or altered. No existing
+  calculation file touched.
+  - **KP Default** (placed before "4-Step Theory"): sections A-F per the
+    spec — planet significator table, node representation, detailed
+    per-planet chains (Self/STL/SUB/STL-of-SUB + cusp connections +
+    aspects when exact longitude is available, else explicitly
+    "Not available from current calculation engine" rather than a guess),
+    a planet signification table split into primary (Occupant/Owner) vs.
+    secondary (Star Lord of Occupant/Owner) sources, a 12-row cusp
+    signification table, and the existing house-wise significator
+    breakdown reproduced for completeness. Pure presentation over
+    significators.js/kpSubLords.js — no new significator rule.
+  - **Event Analysis** (placed after Naadi Significators): a button grid
+    grouped by category (all 32 events already in `eventRules.js`, plus 5
+    additively-merged events — `EXTRA_EVENT_RULES` in `eventAnalysisTab.js`
+    — for the Health category and two Children-specific queries the
+    original spec named that `eventRules.js` didn't yet have;
+    `eventRules.js` itself is never edited). Multiple events select
+    independently; each gets its own collapsible result card (Event
+    Promise, relevant cusps, opposing significators, the Four-Step chain
+    for the best-connecting planet, current Dasha/Transit support, a
+    non-absolute Final Judgement, and Timing Windows with age-at-window
+    in years-months-days-hours). Select All / Clear All provided.
+    **Real bug found and fixed during testing**: the shared timing-search
+    engine (`eventTimingEngine.js`'s `scoreCandidate`) looks up events by
+    key directly in `EVENT_RULES`, so it silently doesn't know about the 5
+    additively-merged events — calling it for one of those crashed the
+    whole render (an uncaught exception mid-loop left the previous
+    selection's card stuck on screen instead of updating). Fixed by
+    detecting this case (`findEventTimingWindows` returns `null`, not an
+    empty array, when the event isn't in the shared engine's own registry)
+    and showing an honest "Timing windows aren't available for this
+    app-added event definition" message instead of crashing — deliberately
+    NOT fixed by merging the extra events into the real `EVENT_RULES`
+    object, since that would have silently widened Event Timing/Horary/
+    Cuspal Interlinks' own event dropdowns too.
+  - **Comparative Analysis**: for whichever event(s) are currently
+    selected in Event Analysis (shared selection state), compares KP
+    Default / Four-Step / S.P. Khullar / K. Bhaskaran / Naadi side by
+    side — each methodology finds its own best-connecting planet from its
+    own significator data; the Overall row reports a descriptive tally
+    ("N of 5 methods support"), never a voting rule. Documented caveat:
+    since Khullar/Bhaskaran/Naadi reuse the same underlying significator
+    computation as KP Default (no independently-derived formula was
+    available — see each tab's own caveat), their comparison rows often
+    match KP Default exactly; Four-Step differs because it applies its own
+    primary-only strength filter. Flagged as an honest reflection of what
+    is actually implemented, not manufactured disagreement.
+  - Verified via Playwright: KP Default's six sections all render real
+    data; Event Analysis's 37 buttons render across 10 categories,
+    multi-select/deselect/Select-All/Clear-All all work correctly with no
+    page errors after the fix above; Comparative Analysis produces a real
+    5-method + Overall table; full existing regression suite (Main tab,
+    the four methodology tabs) still passes unchanged.
 - **Four KP methodology tabs** — "4-Step Theory", "S.P. Khullar", "K. Bhaskaran",
   "Naadi Significators" — added between "Cuspal Interlinks" and "Vimshottari
   Dasha (4 Levels)". Each is a pure, read-only interpretation layer over the

@@ -100,10 +100,13 @@ function init() {
   initEventPromiseTab();
   initCuspalLinksTab();
   initDashaLevelsTab();
+  initKpDefaultTab();
   initFourStepTab();
   initKhullarTab();
   initBhaskaranTab();
   initNaadiTab();
+  initEventAnalysisTab();
+  initComparativeAnalysisTab();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -1291,6 +1294,213 @@ function renderNaadiTab() {
   });
   html += '</div>' + renderNodeRepresentationHtml(chartData);
   el('naadiOutput').innerHTML = html;
+}
+
+// === KP Default ===
+function initKpDefaultTab() {
+  el('kpDefaultLogicOutput').innerHTML = renderLogicDetails(KP_DEFAULT_LOGIC_TEXT);
+  el('refreshKpDefaultBtn').addEventListener('click', renderKpDefaultTab);
+}
+
+function renderKpDefaultTab() {
+  const chartData = buildMethodologyChartData();
+  if (!chartData) { el('kpDefaultOutput').innerHTML = noChartLoadedHtml('KP Default'); return; }
+
+  let html = '<h3>A. Planet Significator Table</h3><table><thead><tr><th>PLA</th><th>SGN</th><th>STL</th><th>SUB</th><th>SSL</th><th>Significator Houses</th></tr></thead><tbody>';
+  buildPlanetSignificatorTable(chartData).forEach(r => {
+    html += `<tr><td>${planetHeaderHtml({ name: r.planet, retrograde: r.retrograde }, r.notation, false)}</td><td>${r.sign}</td><td>${abbr(r.starLord)}</td><td>${abbr(r.subLord)}</td><td>${abbr(r.subSubLord)}</td><td>${houseListText(r.significatorHouses)}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  const nodeRows = buildNodeRepresentationTable(chartData);
+  if (nodeRows.length) {
+    html += '<h3>B. Node Representation</h3><table><thead><tr><th>Node</th><th>Represents (sign lord of occupied sign)</th><th>Represents (planet conjunct the node)</th></tr></thead><tbody>';
+    nodeRows.forEach(r => {
+      html += `<tr><td>${r.node}</td><td>${abbr(r.signLordConvention)}</td><td>${r.conjunctConvention.length ? r.conjunctConvention.map(abbr).join(', ') : '—'} <span style="font-size:0.8em;color:#888;">(${r.conjunctMethod})</span></td></tr>`;
+    });
+    html += '</tbody></table>';
+  }
+
+  html += '<h3>C. Detailed Planet Analysis</h3><div class="kp-methodology-cards">';
+  buildDetailedPlanetAnalysis(chartData).forEach(a => {
+    const planet = findPlanetRecord(chartData.planets, a.planet);
+    html += `<div class="kp-planet-card output-box pastel-peach"><h4>${planetHeaderHtml(planet, a.notation, false)}</h4><table>`;
+    html += `<tr><th>Self</th><td>${houseListText(a.self.houses)}</td></tr>`;
+    html += `<tr><th>STL is ${abbr(a.stl.lord)}</th><td>${houseListText(a.stl.houses)}</td></tr>`;
+    html += `<tr><th>SUB is ${abbr(a.sub.lord)}</th><td>${houseListText(a.sub.houses)}</td></tr>`;
+    html += `<tr><th>STL of SUB (${abbr(a.stlOfSub.lord)})</th><td>${houseListText(a.stlOfSub.houses)}</td></tr>`;
+    html += `<tr><th>Cusp Connections</th><td>${houseListText(a.cuspConnections)}</td></tr>`;
+    html += `<tr><th>Aspects</th><td>${Array.isArray(a.aspects) ? houseListText(a.aspects) : a.aspects}</td></tr>`;
+    html += '</table></div>';
+  });
+  html += '</div>';
+
+  html += '<h3>D. Planet Signification Table</h3><table><thead><tr><th>PLA</th><th>Primary (Occupant/Owner)</th><th>Secondary (Star Lord of Occupant/Owner)</th></tr></thead><tbody>';
+  buildPlanetSignificationTable(chartData).forEach(r => {
+    html += `<tr><td>${abbr(r.planet)}</td><td>${houseListText(r.primaryHouses)}</td><td>${houseListText(r.secondaryHouses)}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  html += '<h3>E. Cusp Signification Table</h3><table><thead><tr><th>Cusp</th><th>Sign</th><th>Sign Lord</th><th>Star Lord</th><th>Sub Lord</th><th>SSL</th><th>Significations</th></tr></thead><tbody>';
+  buildCuspSignificationTable(chartData).forEach(r => {
+    html += `<tr><td>${r.house}</td><td>${r.sign}</td><td>${abbr(r.signLord)}</td><td>${abbr(r.starLord)}</td><td>${abbr(r.subLord)}</td><td>${abbr(r.subSubLord)}</td><td>${houseListText(r.significations)}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  html += '<h3>F. House-wise Significators</h3><table><thead><tr><th>House</th><th>Cusp Sign</th><th>Occupants</th><th>Owners</th><th>STL of Occupants</th><th>STL of Owners</th><th>All Significators</th></tr></thead><tbody>';
+  for (let h = 1; h <= 12; h++) {
+    const s = chartData.significators[h];
+    html += `<tr><td>${h}</td><td>${s.cuspSign || ''}</td><td>${s.occupants.map(abbr).join(', ')}</td><td>${s.owners.map(abbr).join(', ')}</td><td>${s.starLordOfOccupants.map(abbr).join(', ')}</td><td>${s.starLordOfOwners.map(abbr).join(', ')}</td><td>${s.allSignificators.map(abbr).join(', ')}</td></tr>`;
+  }
+  html += '</tbody></table>';
+
+  el('kpDefaultOutput').innerHTML = html;
+}
+
+// === Event Analysis ===
+// selectedEventKeys is shared with Comparative Analysis (below), which
+// compares whatever is currently selected here — the two tabs are wired
+// together deliberately, per the requested workflow.
+let selectedEventKeys = new Set();
+
+function initEventAnalysisTab() {
+  el('eventAnalysisLogicOutput').innerHTML = renderLogicDetails(EVENT_ANALYSIS_LOGIC_TEXT);
+
+  const byCategory = eventKeysByCategory();
+  let html = '';
+  Object.keys(byCategory).forEach(cat => {
+    html += `<div class="event-category-group"><h4>${cat.toUpperCase()}</h4>`;
+    byCategory[cat].forEach(key => {
+      html += `<button type="button" class="event-btn" data-event-key="${key}">${ALL_EVENT_RULES[key].label}</button>`;
+    });
+    html += '</div>';
+  });
+  el('eventAnalysisButtons').innerHTML = html;
+
+  el('eventAnalysisButtons').querySelectorAll('.event-btn').forEach(btn => {
+    btn.addEventListener('click', () => toggleEventSelection(btn.dataset.eventKey));
+  });
+  el('eventAnalysisSelectAllBtn').addEventListener('click', () => {
+    Object.keys(ALL_EVENT_RULES).forEach(k => selectedEventKeys.add(k));
+    syncEventButtonStates();
+    renderEventAnalysisResults();
+  });
+  el('eventAnalysisClearAllBtn').addEventListener('click', () => {
+    selectedEventKeys.clear();
+    syncEventButtonStates();
+    renderEventAnalysisResults();
+  });
+}
+
+function toggleEventSelection(key) {
+  if (selectedEventKeys.has(key)) selectedEventKeys.delete(key);
+  else selectedEventKeys.add(key);
+  syncEventButtonStates();
+  renderEventAnalysisResults();
+}
+
+function syncEventButtonStates() {
+  el('eventAnalysisButtons').querySelectorAll('.event-btn').forEach(btn => {
+    btn.classList.toggle('selected', selectedEventKeys.has(btn.dataset.eventKey));
+  });
+}
+
+function fmtDateOnly(d) { return d.toISOString().slice(0, 10); }
+function fmtAge(a) { return a ? `${a.years}y ${a.months}m ${a.days}d ${a.hours}h` : '—'; }
+
+function renderEventResultCard(analysis) {
+  const d = analysis;
+  let html = `<details class="event-result-card output-box pastel-yellow" open><summary>${d.eventDef.label} — ${d.judgement}</summary>`;
+
+  html += `<p><strong>Category:</strong> ${d.eventDef.category} &nbsp; <strong>Required Houses:</strong> ${houseListText(d.eventDef.requiredHouses)} &nbsp; <strong>Supporting Houses:</strong> ${houseListText(d.eventDef.supportingHouses)} &nbsp; <strong>Opposing Houses:</strong> ${houseListText(d.eventDef.opposingHouses)}</p>`;
+
+  html += `<h4>Event Promise</h4><p>Status: <strong>${d.promise.promised ? 'Supported' : 'Not clearly supported'}</strong> — Best connecting planet: <strong>${abbr(d.promise.bestPlanet)}</strong>, connecting houses ${houseListText(d.promise.housesConnected)} of ${d.eventDef.requiredHouses.length} required.</p>`;
+
+  html += `<h4>Relevant Cusps</h4><table><thead><tr><th>Cusp</th><th>Sign</th><th>Star Lord</th><th>Sub Lord</th><th>SSL</th></tr></thead><tbody>`;
+  d.relevantCusps.forEach(c => { html += `<tr><td>${c.house}</td><td>${c.sign}</td><td>${abbr(c.starLord)}</td><td>${abbr(c.subLord)}</td><td>${abbr(c.subSubLord)}</td></tr>`; });
+  html += '</tbody></table>';
+
+  html += `<h4>Opposing/Challenging Significators</h4><p>${d.opposingSignificators.length ? d.opposingSignificators.map(abbr).join(', ') : 'None'}</p>`;
+
+  if (d.fourStepChain) {
+    html += `<h4>Four-Step Chain for ${abbr(d.promise.bestPlanet)}</h4><table>`;
+    html += renderFourStepStepRow('Step 1 (Planet)', d.fourStepChain.step1);
+    html += renderFourStepStepRow('Step 2 (Star Lord)', d.fourStepChain.step2);
+    html += renderFourStepStepRow('Step 3 (Sub Lord)', d.fourStepChain.step3);
+    html += renderFourStepStepRow('Step 4 (Star Lord of Sub)', d.fourStepChain.step4);
+    html += '</table>';
+  }
+
+  html += `<h4>Current Dasha Support</h4><p>Mahadasha: ${abbr(d.runningLords.mahadasha)} &nbsp; Antardasha: ${abbr(d.runningLords.antardasha)} &nbsp; Pratyantardasha: ${abbr(d.runningLords.pratyantardasha)} &nbsp; Sookshmadasha: ${abbr(d.runningLords.sookshmadasha)}`;
+  html += d.dba ? ` — ${d.dba.capableCount} of ${d.dba.totalLords} running lord(s) signify a required house.</p>` : ' (dasha not available — enter Moon Longitude and Birth Date/Time (UTC) in the Chart & Analysis tab).</p>';
+
+  html += `<h4>Current Transit Support</h4><p>Score ${d.transit.score} of ${d.transit.maxScore} — significator hits: ${d.transit.breakdown.significator.hits.map(abbr).join(', ') || 'none'}; cusp hits: house ${houseListText(d.transit.breakdown.cusp.hits)}.</p>`;
+
+  html += `<h4>Final Judgement</h4><p><strong>${d.judgement}</strong> (this is a screening heuristic, not a certainty).</p>`;
+
+  html += '<h4>Timing Windows</h4>';
+  if (!d.windowsAvailable) {
+    html += '<p>Enter Moon Longitude and Birth Date/Time (UTC) in the Chart &amp; Analysis tab to compute timing windows and age at event.</p>';
+  } else if (!d.windowsSearchable) {
+    html += '<p>Timing windows aren\'t available for this app-added event definition (the shared timing-search engine only recognizes its own registered events) — Promise/Dasha/Transit above are still fully computed.</p>';
+  } else if (!d.windows.length) {
+    html += '<p>No window at/above the Favourable threshold was found in the searched horizon.</p>';
+  } else {
+    d.windows.forEach((w, i) => {
+      const startDate = w.days[0].date, endDate = w.days[w.days.length - 1].date;
+      html += `<div style="margin:6px 0;padding:6px;border:1px solid rgba(0,0,0,0.1);border-radius:6px;">`;
+      html += `<strong>Window ${i + 1}:</strong> ${fmtDateOnly(startDate)} to ${fmtDateOnly(endDate)} — Peak: ${fmtDateOnly(w.peak.date)} (score ${w.peak.total}, ${w.peak.classification})<br>`;
+      html += `Dasha at peak: ${abbr(w.peak.runningLords.mahadasha)} / ${abbr(w.peak.runningLords.antardasha)} / ${abbr(w.peak.runningLords.pratyantardasha)}<br>`;
+      html += `Age at start: ${fmtAge(w.ageAtStart)} &nbsp; Age at end: ${fmtAge(w.ageAtEnd)}`;
+      html += '</div>';
+    });
+  }
+
+  html += '</details>';
+  return html;
+}
+
+function renderEventAnalysisResults() {
+  const chartData = buildMethodologyChartData();
+  if (!chartData) { el('eventAnalysisResults').innerHTML = noChartLoadedHtml('Event Analysis'); return; }
+  if (!selectedEventKeys.size) { el('eventAnalysisResults').innerHTML = '<p>No events selected.</p>'; return; }
+
+  const birthStr = el('birthDateTime').value;
+  const birthDateTime = birthStr ? new Date(birthStr) : null;
+  const searchYears = Number(el('eventAnalysisHorizon').value) || 3;
+
+  let html = '';
+  [...selectedEventKeys].forEach(key => {
+    const analysis = analyzeEventFull(key, chartData, birthDateTime, searchYears);
+    html += renderEventResultCard(analysis);
+  });
+  el('eventAnalysisResults').innerHTML = html;
+}
+
+// === Comparative Analysis ===
+function initComparativeAnalysisTab() {
+  el('comparativeAnalysisLogicOutput').innerHTML = renderLogicDetails(COMPARATIVE_ANALYSIS_LOGIC_TEXT);
+  el('refreshComparativeAnalysisBtn').addEventListener('click', renderComparativeAnalysisTab);
+}
+
+function renderComparisonRow(r) {
+  return `<tr><td>${r.method}</td><td>${r.result}</td><td>${abbr(r.bestPlanet)}</td><td>${houseListText(r.housesConnected)}</td><td>${r.reason}</td></tr>`;
+}
+
+function renderComparativeAnalysisTab() {
+  const chartData = buildMethodologyChartData();
+  if (!chartData) { el('comparativeAnalysisOutput').innerHTML = noChartLoadedHtml('Comparative Analysis'); return; }
+  if (!selectedEventKeys.size) { el('comparativeAnalysisOutput').innerHTML = '<p>No events selected — select one or more events in the Event Analysis tab first.</p>'; return; }
+
+  let html = '';
+  [...selectedEventKeys].forEach(key => {
+    const cmp = compareEventAcrossMethods(key, chartData);
+    html += `<h3>${cmp.eventDef.label}</h3><table><thead><tr><th>Method</th><th>Result</th><th>Strongest Planet</th><th>Houses Connected</th><th>Reason</th></tr></thead><tbody>`;
+    cmp.rows.forEach(r => { html += renderComparisonRow(r); });
+    html += `<tr style="font-weight:bold;"><td>${cmp.overall.method}</td><td>${cmp.overall.result}</td><td>—</td><td>${houseListText(cmp.overall.housesConnected)}</td><td>${cmp.overall.reason}</td></tr>`;
+    html += '</tbody></table>';
+  });
+  el('comparativeAnalysisOutput').innerHTML = html;
 }
 
 // Each life topic gets its own pastel-colored card, cycled through this list.
