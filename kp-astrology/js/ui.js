@@ -100,6 +100,10 @@ function init() {
   initEventPromiseTab();
   initCuspalLinksTab();
   initDashaLevelsTab();
+  initFourStepTab();
+  initKhullarTab();
+  initBhaskaranTab();
+  initNaadiTab();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -1116,6 +1120,177 @@ function renderDashaColumn(level, periods) {
       renderDashaColumn(level + 1, period[childKey]);
     });
   });
+}
+
+// --- KP methodology tabs: Four-Step Theory, S.P. Khullar, K. Bhaskaran,
+// Naadi Significators. All four read the SAME currently-loaded chart via
+// buildMethodologyChartData() (kpMethodologyCommon.js) and share the same
+// "no chart loaded yet" guard message and header notation rendering.
+
+function houseListText(houses) {
+  return houses && houses.length ? houses.join(',') : '—';
+}
+
+// "PLANET#*( +) R" header shared by every methodology card/table, per the
+// confirmed notation: # = in own star, * = no planet in its star,
+// (+) = both a supporting and an obstructing house present, R in red = retrograde.
+function planetHeaderHtml(planet, notation, mixedMarker) {
+  const parts = [planet.name];
+  if (notation) parts.push(notation);
+  if (mixedMarker) parts.push('(+)');
+  let html = parts.join('');
+  if (planet.retrograde) html += ' <span class="kp-retrograde">R</span>';
+  return html;
+}
+
+function noChartLoadedHtml(tabLabel) {
+  return `<p>No chart loaded yet — enter/generate/upload a chart in the Chart &amp; Analysis tab, then click Refresh here to run ${tabLabel}.</p>`;
+}
+
+// Node representation (Rahu/Ketu), shown as two separately-labeled rows
+// (never merged), appended under each methodology's cards for whichever
+// nodes are present in the currently loaded chart.
+function renderNodeRepresentationHtml(chartData) {
+  const nodes = chartData.planets.filter(p => p.name === 'Rahu' || p.name === 'Ketu');
+  if (!nodes.length) return '';
+  let html = '<h4>Node Representation</h4><table><thead><tr><th>Node</th><th>Represents (sign lord of occupied sign)</th><th>Represents (planet conjunct the node)</th></tr></thead><tbody>';
+  nodes.forEach(node => {
+    const rep = nodeRepresentation(node, chartData.planets);
+    html += `<tr><td>${node.name}</td><td>${abbr(rep.signLordConvention)}</td><td>${rep.conjunctConvention.length ? rep.conjunctConvention.map(abbr).join(', ') : '—'} <span style="font-size:0.8em;color:#888;">(${rep.conjunctMethod})</span></td></tr>`;
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+// === Four-Step Theory ===
+function initFourStepTab() {
+  el('fourStepLogicOutput').innerHTML = renderLogicDetails(FOUR_STEP_LOGIC_TEXT);
+  el('refreshFourStepBtn').addEventListener('click', renderFourStepTab);
+}
+
+function renderFourStepStepRow(label, step) {
+  if (!step) return `<tr><th>${label}</th><td>—</td></tr>`;
+  const houseText = step.occupiedHouse !== null
+    ? `${step.occupiedHouse}${step.occupiedIsPrimary ? ' (primary)' : ' (secondary)'}`
+    : '—';
+  const ownedText = step.ownedHouses.length
+    ? step.ownedHouses.map(h => `${h}${step.primaryOwnedHouses.includes(h) ? '(P)' : '(S)'}`).join(',')
+    : '—';
+  return `<tr><th>${label}: ${abbr(step.lord)}</th><td>Occupies: ${houseText} &nbsp; Owns: ${ownedText}</td></tr>`;
+}
+
+function renderFourStepTab() {
+  const chartData = buildMethodologyChartData();
+  if (!chartData) { el('fourStepOutput').innerHTML = noChartLoadedHtml('Four-Step Theory'); return; }
+
+  const analyses = analyzeFourStep(chartData);
+  let html = '<div class="kp-methodology-cards">';
+  analyses.forEach(a => {
+    const planet = findPlanetRecord(chartData.planets, a.planet);
+    html += `<div class="kp-planet-card output-box pastel-blue"><h3>${planetHeaderHtml(planet, a.notation, false)}</h3><table>`;
+    html += renderFourStepStepRow('Step 1 (Planet)', a.step1);
+    html += renderFourStepStepRow('Step 2 (Star Lord)', a.step2);
+    html += renderFourStepStepRow('Step 3 (Sub Lord)', a.step3);
+    html += renderFourStepStepRow('Step 4 (Star Lord of Sub)', a.step4);
+    html += `<tr><th>Primary Significations</th><td>${houseListText(a.primaryHouses)}</td></tr>`;
+    html += `<tr><th>Secondary Significations</th><td>${houseListText(a.secondaryHouses)}</td></tr>`;
+    html += `<tr><th>Overall</th><td>${houseListText(a.overallHouses)}</td></tr>`;
+    html += `<tr><th>Ordinary Sub-Sub Lord</th><td>${abbr(a.planetSubSubLord)} <span style="font-size:0.8em;color:#888;">(NOT the same as Step 4's ${abbr(a.subLordStarLord)})</span></td></tr>`;
+    html += '</table></div>';
+  });
+  html += '</div>' + renderNodeRepresentationHtml(chartData);
+  el('fourStepOutput').innerHTML = html;
+}
+
+// === S.P. Khullar ===
+function initKhullarTab() {
+  el('khullarLogicOutput').innerHTML = renderLogicDetails(SP_KHULLAR_LOGIC_TEXT);
+  el('refreshKhullarBtn').addEventListener('click', renderKhullarTab);
+}
+
+function khullarLordCellText(summary) {
+  if (!summary.lord) return '—';
+  return `${abbr(summary.lord)}${summary.occupiedHouse !== null ? '(' + summary.occupiedHouse + ')' : ''}`;
+}
+
+function renderKhullarTab() {
+  const chartData = buildMethodologyChartData();
+  if (!chartData) { el('khullarOutput').innerHTML = noChartLoadedHtml('S.P. Khullar'); return; }
+
+  const analyses = analyzeKhullar(chartData);
+  let html = '<div class="kp-methodology-cards">';
+  analyses.forEach(a => {
+    const planet = findPlanetRecord(chartData.planets, a.planet);
+    html += `<div class="kp-planet-card output-box pastel-yellow"><h3>${planetHeaderHtml(planet, a.notation, a.mixedMarker)}</h3><table>`;
+    html += `<tr><th>Lords of</th><td>SGN${khullarLordCellText(a.lordsOf.sgn)} STL${khullarLordCellText(a.lordsOf.stl)} SUB${khullarLordCellText(a.lordsOf.sub)} SSL${khullarLordCellText(a.lordsOf.ssl)}<br>Posited(${a.positedHouse})</td></tr>`;
+    html += `<tr><th>Positional</th><td>${houseListText(a.positional)}</td></tr>`;
+    html += `<tr><th>Star Lord</th><td>${abbr(a.starLord.lord)}(${houseListText(a.starLord.houses)})</td></tr>`;
+    html += `<tr><th>Sub Lord</th><td>${abbr(a.subLord.lord)}(${houseListText(a.subLord.houses)})</td></tr>`;
+    html += `<tr><th>S.S Lord</th><td>${abbr(a.subSubLord.lord)}(${houseListText(a.subSubLord.houses)})</td></tr>`;
+    html += '</table></div>';
+  });
+  html += '</div>' + renderNodeRepresentationHtml(chartData);
+  el('khullarOutput').innerHTML = html;
+}
+
+// === K. Bhaskaran ===
+function initBhaskaranTab() {
+  el('bhaskaranLogicOutput').innerHTML = renderLogicDetails(K_BHASKARAN_LOGIC_TEXT);
+  el('refreshBhaskaranBtn').addEventListener('click', renderBhaskaranTab);
+}
+
+function bhaskaranCellHtml(cell) {
+  if (!cell.lord) return '—';
+  return `${abbr(cell.lord)}-${cell.occupiedHouse !== null ? cell.occupiedHouse : '?'}<br>(${houseListText(cell.houses)})`;
+}
+
+function renderBhaskaranTab() {
+  const chartData = buildMethodologyChartData();
+  if (!chartData) { el('bhaskaranOutput').innerHTML = noChartLoadedHtml('K. Bhaskaran'); return; }
+
+  const { table1, table2 } = analyzeBhaskaran(chartData);
+
+  let html = '<h4>Planets (Four-Level Table)</h4><table><thead><tr><th>PLA</th><th>STL</th><th>SUB</th><th>SSL</th></tr></thead><tbody>';
+  table1.forEach(row => {
+    const planet = findPlanetRecord(chartData.planets, row.planet);
+    const plaCell = `${planetHeaderHtml(planet, row.notation, false)}-${row.occupiedHouse}`;
+    html += `<tr><td>${plaCell}</td><td>${bhaskaranCellHtml(row.stl)}</td><td>${bhaskaranCellHtml(row.sub)}</td><td>${bhaskaranCellHtml(row.ssl)}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  html += '<h4>Planet / Significator / Cusps</h4><table><thead><tr><th>PLANET</th><th>Significator</th><th>Cusps</th></tr></thead><tbody>';
+  table2.forEach(row => {
+    html += `<tr><td>${abbr(row.planet)}</td><td>${houseListText(row.significatorHouses)}</td><td>${houseListText(row.subLordOfCusps)}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  html += renderNodeRepresentationHtml(chartData);
+  el('bhaskaranOutput').innerHTML = html;
+}
+
+// === Naadi Significators ===
+function initNaadiTab() {
+  el('naadiLogicOutput').innerHTML = renderLogicDetails(NAADI_SIGNIFICATORS_LOGIC_TEXT);
+  el('refreshNaadiBtn').addEventListener('click', renderNaadiTab);
+}
+
+function renderNaadiTab() {
+  const chartData = buildMethodologyChartData();
+  if (!chartData) { el('naadiOutput').innerHTML = noChartLoadedHtml('Naadi Significators'); return; }
+
+  const analyses = analyzeNaadi(chartData);
+  let html = '<div class="kp-methodology-cards">';
+  analyses.forEach(a => {
+    const planet = findPlanetRecord(chartData.planets, a.planet);
+    html += `<div class="kp-planet-card output-box pastel-lavender"><h3>${planetHeaderHtml(planet, a.notation, false)}</h3><table>`;
+    html += `<tr><th>Planet</th><td>${abbr(a.self.lord)}(${houseListText(a.self.houses)})</td></tr>`;
+    html += `<tr><th>Star Lord</th><td>${abbr(a.starLord.lord)}(${houseListText(a.starLord.houses)})</td></tr>`;
+    html += `<tr><th>Sub Lord</th><td>${abbr(a.subLord.lord)}(${houseListText(a.subLord.houses)})</td></tr>`;
+    html += `<tr><th>S.S Lord</th><td>${abbr(a.subSubLord.lord)}(${houseListText(a.subSubLord.houses)})</td></tr>`;
+    html += '</table></div>';
+  });
+  html += '</div>' + renderNodeRepresentationHtml(chartData);
+  el('naadiOutput').innerHTML = html;
 }
 
 // Each life topic gets its own pastel-colored card, cycled through this list.

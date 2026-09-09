@@ -5,6 +5,61 @@ clear what's real vs. deferred at any point.
 
 ## Done
 
+- **Four KP methodology tabs** — "4-Step Theory", "S.P. Khullar", "K. Bhaskaran",
+  "Naadi Significators" — added between "Cuspal Interlinks" and "Vimshottari
+  Dasha (4 Levels)". Each is a pure, read-only interpretation layer over the
+  SAME currently-loaded chart (`state.planets`/`state.cusps`) and the SAME
+  `buildSignificators()` output the rest of the app already uses — **no
+  change to any existing calculation file** (`kpSubLords.js`, `ephemeris.js`,
+  `placidusCusps.js`, `dasha.js`, `significators.js`, `eventRules.js`,
+  `cuspalInterlinks.js`, `settings.js` all untouched). New files, all
+  additive: `js/kpMethodologyCommon.js` (shared helpers — notation, node
+  representation, house-nature classification, chart-data snapshot),
+  `js/fourStepTheory.js`, `js/spKhullar.js`, `js/kBhaskaran.js`,
+  `js/naadiSignificators.js`. Each has its own "Refresh" button (same
+  pattern as Charts/Dasha-Levels) and does not affect any other tab.
+  - **Four-Step Theory**: Planet → Star Lord → Sub Lord → **Star Lord of
+    the Sub Lord** (Step 4) — kept as a distinct field (`subLordStarLord`)
+    from the planet's ordinary Sub-Sub Lord (`planetSubSubLord`), verified
+    to differ in practice (e.g. natal Sun: ordinary SSL = Ketu, Step 4 =
+    Venus). Primary/secondary strength uses the published Four-Step rule:
+    an occupied house is primary only if no other planet sits in that
+    lord's own star; an owned house is primary only if no planet occupies
+    it.
+  - **S.P. Khullar / K. Bhaskaran / Naadi Significators**: table/card
+    layouts reproduce the STRUCTURE of the reference screenshots you
+    supplied (Lords of/Positional/Star-Sub-SS Lord cards; PLA/STL/SUB/SSL
+    + Planet/Significator/Cusps tables; Planet/Star/Sub/SS Lord chain
+    cards respectively), built on this app's standard significator engine.
+    Per your own instruction, this is flagged rather than claimed as an
+    independently re-derived Khullar/Bhaskaran/Naadi formula — published
+    S.P. Khullar and K. Bhaskaran work centers on Cuspal Interlinks (this
+    app's existing `cuspalInterlinks.js`), and no separately-documented
+    "Naadi Significators" rule distinct from the standard KP 4-level chain
+    was found; corrections welcome as you cross-check specific rows.
+  - **Notation** (confirmed by you): `#` = planet posited in a nakshatra
+    ruled by itself; `*` = no other planet posited in a nakshatra ruled by
+    this planet (also the Four-Step strength test); `R` = retrograde,
+    rendered in red (`.kp-retrograde`, verified via computed style
+    `rgb(198, 40, 40)`); `(+)` = the planet's own significator houses
+    include both a supporting (Favorable: 1,3,5,7,9,11) and an obstructing
+    (Unfavorable: 4,8,12) house at once — reusing the same fixed
+    house-nature classification `cuspalInterlinks.js` already applies, not
+    a new invented rule.
+  - **Node representation** (Rahu/Ketu): shown as two SEPARATELY labeled
+    rows, never merged — "Represents (sign lord of occupied sign)" and
+    "Represents (planet conjunct the node)" (exact-longitude conjunction,
+    same `CONJUNCTION_ORB` test `planetaryRelations.js` already uses, when
+    longitude is available; falls back to same-house placement otherwise).
+  - **Deferred, not forgotten**: "KP Default" (enhanced Tab 1), "Event
+    Analysis" (button-grid, multi-select event cards), and "Comparative
+    Analysis" from the original spec were not built in this pass — flagged
+    to the user as a following phase, not silently dropped.
+  - Verified via Playwright: all four tabs render real computed data (no
+    page errors beyond two pre-existing unrelated 404s), retrograde
+    renders in red, Four-Step's Step 4 correctly differs from the ordinary
+    Sub-Sub Lord, and the full existing regression suite (Main tab,
+    Vimshottari Dasha 4 Levels) still passes unchanged.
 - **Location search removed, per explicit request**: the worldwide
   GeoNames-based location-selector feature (search box, dropdown, offline
   SQLite database, "Use My Current Location") built earlier has been fully

@@ -80,6 +80,17 @@
   .vedic-chart-cell .lord-info { color: #666; font-size: 0.9em; display: block; }
   .vedic-chart-svg text { font-size: 11px; }
   .vedic-chart-container { display: flex; flex-wrap: wrap; gap: 24px; }
+
+  /* KP methodology tabs (Four-Step Theory, S.P. Khullar, K. Bhaskaran,
+     Naadi Significators): one card per planet, reusing the existing
+     output-box/pastel look rather than introducing a new visual style. */
+  .kp-methodology-cards { display: flex; flex-wrap: wrap; gap: 14px; }
+  .kp-planet-card { flex: 1 1 300px; min-width: 280px; }
+  .kp-planet-card h3 { margin: 0 0 8px; }
+  .kp-planet-card table { margin: 0; }
+  .kp-planet-card th { width: 32%; text-align: left; white-space: nowrap; }
+  .kp-retrograde { color: #c62828; font-weight: bold; }
+  .kp-notation { font-weight: normal; color: #555; font-size: 0.8em; }
 </style>
 </head>
 <body>
@@ -95,6 +106,10 @@
   <button class="tab-button" id="tabBtnHorary" data-tab="tabHorary">Horary Prediction</button>
   <button class="tab-button" id="tabBtnEventPromise" data-tab="tabEventPromise">Auto Predicted Event Promise</button>
   <button class="tab-button" id="tabBtnCuspalLinks" data-tab="tabCuspalLinks">Cuspal Interlinks</button>
+  <button class="tab-button" id="tabBtnFourStep" data-tab="tabFourStep">4-Step Theory</button>
+  <button class="tab-button" id="tabBtnKhullar" data-tab="tabKhullar">S.P. Khullar</button>
+  <button class="tab-button" id="tabBtnBhaskaran" data-tab="tabBhaskaran">K. Bhaskaran</button>
+  <button class="tab-button" id="tabBtnNaadi" data-tab="tabNaadi">Naadi Significators</button>
   <button class="tab-button" id="tabBtnDashaLevels" data-tab="tabDashaLevels">Vimshottari Dasha (4 Levels)</button>
   <button class="tab-button" id="tabBtnSettings" data-tab="tabSettings">Settings</button>
 </div>
@@ -448,6 +463,38 @@
 <div id="cuspalLinksBox" class="output-box pastel-yellow"></div>
 </div>
 
+<div class="tab-panel" id="tabFourStep">
+<h2>Four-Step Theory</h2>
+<p>Uses the CURRENTLY LOADED chart (Chart &amp; Analysis tab). For each planet: Step 1 (the planet itself), Step 2 (its Star Lord), Step 3 (its Sub Lord), Step 4 (the STAR LORD of that Sub Lord — not the planet's ordinary Sub-Sub Lord; these are kept as separate fields). Each step's houses are split into Primary (strong) and Secondary (weak) significations. This is a separate interpretation layer from the Chart &amp; Analysis tab's own KP significator table — results are never mixed between the two.</p>
+<div id="fourStepLogicOutput"></div>
+<div class="controls"><button id="refreshFourStepBtn">Refresh</button></div>
+<div id="fourStepOutput" class="output-box pastel-blue"></div>
+</div>
+
+<div class="tab-panel" id="tabKhullar">
+<h2>S.P. Khullar</h2>
+<p>Uses the CURRENTLY LOADED chart (Chart &amp; Analysis tab). One card per planet: Lords of (Sign/Star/Sub/Sub-Sub Lord, each with its own occupied house), Positional (the planet's own significator houses), and the Star Lord / Sub Lord / Sub-Sub Lord's own significator houses. "(+)" marks a planet whose significator houses include both a supporting and an obstructing house.</p>
+<div id="khullarLogicOutput"></div>
+<div class="controls"><button id="refreshKhullarBtn">Refresh</button></div>
+<div id="khullarOutput"></div>
+</div>
+
+<div class="tab-panel" id="tabBhaskaran">
+<h2>K. Bhaskaran</h2>
+<p>Uses the CURRENTLY LOADED chart (Chart &amp; Analysis tab). Table 1: each planet's Star/Sub/Sub-Sub Lord, shown as "Lord-House (that lord's own significator houses)". Table 2: each planet's own significator houses and which cusp(s) it is the Sub Lord of.</p>
+<div id="bhaskaranLogicOutput"></div>
+<div class="controls"><button id="refreshBhaskaranBtn">Refresh</button></div>
+<div id="bhaskaranOutput" class="output-box pastel-mint"></div>
+</div>
+
+<div class="tab-panel" id="tabNaadi">
+<h2>Naadi Significators</h2>
+<p>Uses the CURRENTLY LOADED chart (Chart &amp; Analysis tab). One card per planet: Planet, Star Lord, Sub Lord, and Sub-Sub Lord, each shown with THEIR OWN significator houses — the planetary linkage chain made visible rather than only a final combined list.</p>
+<div id="naadiLogicOutput"></div>
+<div class="controls"><button id="refreshNaadiBtn">Refresh</button></div>
+<div id="naadiOutput"></div>
+</div>
+
 <div class="tab-panel" id="tabDashaLevels">
 <h2>Vimshottari Dasha (4 Levels)</h2>
 <p>Read-only display of the Vimshottari dasha for the currently loaded birth data (from the Chart &amp; Analysis tab — whether entered manually, auto-generated from birth details, or loaded from an uploaded file) — Mahadasha, Antardasha, Pratyantardasha, and Sookshmadasha. Click a period to expand its sub-periods. This tab does not compute or affect anything else; click Refresh after changing the birth data.</p>
@@ -507,6 +554,11 @@
 <script src="js/horaryEngine.js"></script>
 <script src="js/eventPromiseTable.js"></script>
 <script src="js/cuspalInterlinks.js"></script>
+<script src="js/kpMethodologyCommon.js"></script>
+<script src="js/fourStepTheory.js"></script>
+<script src="js/spKhullar.js"></script>
+<script src="js/kBhaskaran.js"></script>
+<script src="js/naadiSignificators.js"></script>
 <script src="js/vedicCharts.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/updater.js"></script>
