@@ -701,6 +701,26 @@ clear what's real vs. deferred at any point.
   found its match — i.e. the India DB had already loaded in the background
   by the time a user would plausibly have started typing.
 
+- **Saved Natives — direct data entry in-tab**: the "Saved Natives" tab's
+  "Save / Add Native" fieldset now has its own Birth Date, Birth Time,
+  Latitude, Longitude, Timezone Mode (name/offset), Time Zone, and UTC
+  Offset fields, independent of the Chart & Analysis tab. You can type a
+  new native's full birth data directly in this tab and Save without ever
+  visiting Chart & Analysis first. A "Copy from Chart & Analysis tab"
+  button remains for the previous workflow (fill Chart & Analysis, then
+  copy its current values in here) — `copyNativeFieldsFromChart()`,
+  `populateNativeIanaZoneOptions()`, `toggleNativeTzModeInputs()` in
+  `js/ui.js`. `collectCurrentNativeRecord()` now reads from these new
+  `nativeBirthDate`/`nativeBirthTime`/`nativeLat`/`nativeLon`/
+  `nativeTzMode`/`nativeIanaZone`/`nativeUtcOffset` fields instead of the
+  Chart & Analysis tab's fields. `loadNativeRecord()` (clicking "Load" on a
+  saved record) still populates the Chart & Analysis tab and regenerates
+  the full chart as before, and now ALSO populates this tab's own
+  birth-data fields so the two stay in sync. Verified via
+  `/tmp/test_saved_natives.js`: typed a full record directly in the tab and
+  saved it (no Chart & Analysis interaction at all), confirmed the Copy
+  button still works, and confirmed Load repopulates both tabs' fields.
+
 ## Deferred (by your explicit decision, not overlooked)
 
 - **BNN calculations**: not implemented — need a reference for what this

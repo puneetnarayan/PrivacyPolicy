@@ -1800,7 +1800,50 @@ function initSavedNativesTab() {
   el('savedNativesNewFileBtn').addEventListener('click', startNewNativesCsv);
   el('saveNativeBtn').addEventListener('click', saveCurrentNativeToCsv);
   el('savedNativesSearch').addEventListener('input', renderSavedNativesTable);
+  el('nativeTzMode').addEventListener('change', toggleNativeTzModeInputs);
+  el('copyFromChartBtn').addEventListener('click', copyNativeFieldsFromChart);
+  populateNativeIanaZoneOptions();
+  toggleNativeTzModeInputs();
   renderSavedNativesTable();
+}
+
+function toggleNativeTzModeInputs() {
+  const mode = el('nativeTzMode').value;
+  el('nativeIanaZoneLabel').hidden = mode !== 'iana';
+  el('nativeUtcOffsetLabel').hidden = mode !== 'offset';
+}
+
+function populateNativeIanaZoneOptions() {
+  const select = el('nativeIanaZone');
+  let zones;
+  try {
+    zones = Intl.supportedValuesOf('timeZone');
+  } catch (e) {
+    zones = null;
+  }
+  if (!zones || !zones.length) {
+    select.innerHTML = '<option value="">(not supported in this browser — use UTC offset mode instead)</option>';
+    el('nativeTzMode').value = 'offset';
+    toggleNativeTzModeInputs();
+    return;
+  }
+  select.innerHTML = zones.map(z => `<option value="${z}">${z}</option>`).join('');
+  const guessed = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (guessed && zones.includes(guessed)) select.value = guessed;
+}
+
+// Fills this tab's birth fields from whatever is currently in the Chart &
+// Analysis tab, for a native who was generated there first.
+function copyNativeFieldsFromChart() {
+  el('nativeBirthDate').value = el('birthLocalDate').value;
+  el('nativeBirthTime').value = el('birthLocalTime').value;
+  el('nativeLat').value = el('birthLat').value;
+  el('nativeLon').value = el('birthLon').value;
+  el('nativeTzMode').value = el('timezoneMode').value === 'iana' ? 'iana' : 'offset';
+  toggleNativeTzModeInputs();
+  if (el('timezoneMode').value === 'iana') setIanaZoneSelectValue(el('nativeIanaZone'), el('ianaZone').value);
+  else el('nativeUtcOffset').value = el('utcOffset').value;
+  el('savedNativesStatus').textContent = 'Copied birth details from Chart & Analysis tab.';
 }
 
 // Browse for an existing CSV. Uses the File System Access API (keeps a
@@ -1920,12 +1963,12 @@ function collectCurrentNativeRecord() {
     city: el('nativeCity').value.trim(),
     state: el('nativeState').value.trim(),
     country: el('nativeCountry').value.trim(),
-    birthDate: el('birthLocalDate').value,
-    birthTime: el('birthLocalTime').value,
-    latitude: el('birthLat').value,
-    longitude: el('birthLon').value,
-    timezoneMode: el('timezoneMode').value,
-    utcOffset: el('timezoneMode').value === 'iana' ? el('ianaZone').value : el('utcOffset').value,
+    birthDate: el('nativeBirthDate').value,
+    birthTime: el('nativeBirthTime').value,
+    latitude: el('nativeLat').value,
+    longitude: el('nativeLon').value,
+    timezoneMode: el('nativeTzMode').value,
+    utcOffset: el('nativeTzMode').value === 'iana' ? el('nativeIanaZone').value : el('nativeUtcOffset').value,
     notes: el('nativeNotes').value.trim()
   };
 }
@@ -1934,7 +1977,7 @@ async function saveCurrentNativeToCsv() {
   const rec = collectCurrentNativeRecord();
   if (!rec.name) { el('savedNativesStatus').textContent = 'Enter a Name before saving.'; return; }
   if (!rec.birthDate || !rec.birthTime || !rec.latitude || !rec.longitude) {
-    el('savedNativesStatus').textContent = 'Enter Birth Date, Time, Latitude, and Longitude in the Chart & Analysis tab before saving.';
+    el('savedNativesStatus').textContent = 'Enter Birth Date, Time, Latitude, and Longitude above before saving (or use "Copy from Chart & Analysis tab").';
     return;
   }
 
@@ -1971,6 +2014,15 @@ function loadNativeRecord(rec) {
   toggleTimezoneModeInputs();
   if (rec.timezoneMode === 'iana') setIanaZoneSelectValue(el('ianaZone'), rec.utcOffset || '');
   else el('utcOffset').value = rec.utcOffset || '';
+
+  el('nativeBirthDate').value = rec.birthDate || '';
+  el('nativeBirthTime').value = rec.birthTime || '';
+  el('nativeLat').value = rec.latitude || '';
+  el('nativeLon').value = rec.longitude || '';
+  el('nativeTzMode').value = rec.timezoneMode === 'iana' ? 'iana' : 'offset';
+  toggleNativeTzModeInputs();
+  if (rec.timezoneMode === 'iana') setIanaZoneSelectValue(el('nativeIanaZone'), rec.utcOffset || '');
+  else el('nativeUtcOffset').value = rec.utcOffset || '';
 
   BIRTH_INPUT_IDS.forEach(id => {
     el(id).classList.remove('birth-input-reset', 'birth-input-submitted');

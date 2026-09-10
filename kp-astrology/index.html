@@ -611,7 +611,7 @@
 </fieldset>
 
 <fieldset>
-  <legend>Save Current Chart's Native</legend>
+  <legend>Save / Add Native</legend>
   <label>Name: <input type="text" id="nativeName" placeholder="e.g. Jane Doe"></label>
   <label>Sex:
     <select id="nativeSex">
@@ -625,9 +625,25 @@
   <label>City: <input type="text" id="nativeCity"></label>
   <label>State: <input type="text" id="nativeState"></label>
   <label>Country: <input type="text" id="nativeCountry"></label><br><br>
+
+  <label>Birth Date: <input type="date" id="nativeBirthDate"></label>
+  <label>Birth Time (local clock time at birth place): <input type="time" id="nativeBirthTime" step="60"></label><br><br>
+  <label>Latitude: <input type="text" id="nativeLat" placeholder="e.g. 28.6139"></label>
+  <label>Longitude: <input type="text" id="nativeLon" placeholder="e.g. 77.2090"></label><br><br>
+  <label>Timezone mode:
+    <select id="nativeTzMode">
+      <option value="iana">Time zone name</option>
+      <option value="offset">UTC offset</option>
+    </select>
+  </label>
+  <label id="nativeIanaZoneLabel">Time zone: <select id="nativeIanaZone"></select></label>
+  <label id="nativeUtcOffsetLabel" hidden>UTC offset (e.g. +5:30): <input type="text" id="nativeUtcOffset" placeholder="+5:30"></label><br><br>
+
   <label>Notes: <input type="text" id="nativeNotes" style="width:60%;" placeholder="Any additional notes"></label><br><br>
-  <p style="font-size:0.85em;color:#666;">Birth Date/Time/Latitude/Longitude/Timezone are taken directly from the Chart &amp; Analysis tab's current values at the moment you click Save.</p>
-  <div class="controls"><button id="saveNativeBtn">Save to CSV</button></div>
+  <div class="controls">
+    <button id="copyFromChartBtn" title="Fill the fields above with the Chart & Analysis tab's current birth details">Copy from Chart &amp; Analysis tab</button>
+    <button id="saveNativeBtn">Save to CSV</button>
+  </div>
 </fieldset>
 
 <fieldset>
