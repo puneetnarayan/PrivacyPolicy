@@ -153,6 +153,7 @@
   <button class="tab-button" id="tabBtnComparativeAnalysis" data-tab="tabComparativeAnalysis">Comparative Analysis</button>
   <button class="tab-button" id="tabBtnCareer" data-tab="tabCareer">Profession &amp; Career</button>
   <button class="tab-button" id="tabBtnDashaLevels" data-tab="tabDashaLevels">Vimshottari Dasha (4 Levels)</button>
+  <button class="tab-button" id="tabBtnSavedNatives" data-tab="tabSavedNatives">Saved Natives</button>
   <button class="tab-button" id="tabBtnSettings" data-tab="tabSettings">Settings</button>
 </div>
 
@@ -594,6 +595,48 @@
 <div id="dashaLevelsOutput" class="output-box pastel-aqua"></div>
 </div>
 
+<div class="tab-panel" id="tabSavedNatives">
+<h2>Saved Natives</h2>
+<p>Save the currently entered birth details (Chart &amp; Analysis tab) alongside a name and other identity fields to a CSV file for later review — and load any saved native back in with one click, which repopulates the birth fields and regenerates the full chart immediately. Search across every field below. This is local file storage (a plain CSV file you choose), not a server — back it up yourself like any other personal file.</p>
+<div id="savedNativesLogicOutput"></div>
+
+<fieldset>
+  <legend>CSV File</legend>
+  <div class="controls">
+    <button id="savedNativesConnectBtn">Browse / Connect CSV File</button>
+    <input type="file" id="savedNativesFileInput" accept=".csv" style="display:none;">
+    <button id="savedNativesNewFileBtn">Start a New (Empty) CSV</button>
+  </div>
+  <p id="savedNativesStatus" style="font-size:0.85em;color:#666;">No CSV file connected yet.</p>
+</fieldset>
+
+<fieldset>
+  <legend>Save Current Chart's Native</legend>
+  <label>Name: <input type="text" id="nativeName" placeholder="e.g. Jane Doe"></label>
+  <label>Sex:
+    <select id="nativeSex">
+      <option value="">(unspecified)</option>
+      <option value="Female">Female</option>
+      <option value="Male">Male</option>
+      <option value="Other">Other</option>
+    </select>
+  </label><br><br>
+  <label>Location: <input type="text" id="nativeLocation" placeholder="e.g. Hospital / area name"></label>
+  <label>City: <input type="text" id="nativeCity"></label>
+  <label>State: <input type="text" id="nativeState"></label>
+  <label>Country: <input type="text" id="nativeCountry"></label><br><br>
+  <label>Notes: <input type="text" id="nativeNotes" style="width:60%;" placeholder="Any additional notes"></label><br><br>
+  <p style="font-size:0.85em;color:#666;">Birth Date/Time/Latitude/Longitude/Timezone are taken directly from the Chart &amp; Analysis tab's current values at the moment you click Save.</p>
+  <div class="controls"><button id="saveNativeBtn">Save to CSV</button></div>
+</fieldset>
+
+<fieldset>
+  <legend>Search &amp; Load</legend>
+  <label>Search: <input type="text" id="savedNativesSearch" placeholder="Search name, city, notes, ..." style="width:50%;"></label>
+</fieldset>
+<div id="savedNativesTable"></div>
+</div>
+
 <div class="tab-panel" id="tabSettings">
 <h2>Settings</h2>
 <p>These choices affect every calculation in the app. Only options with a real, implemented formula can be selected — see the note below each dropdown.</p>
@@ -653,6 +696,7 @@
 <script src="js/eventAnalysisTab.js"></script>
 <script src="js/comparativeAnalysisTab.js"></script>
 <script src="js/careerTab.js"></script>
+<script src="js/savedNatives.js"></script>
 <script src="js/vedicCharts.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/updater.js"></script>

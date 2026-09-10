@@ -108,6 +108,7 @@ function init() {
   initEventAnalysisTab();
   initComparativeAnalysisTab();
   initCareerTab();
+  initSavedNativesTab();
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -1777,6 +1778,244 @@ function renderCareerTab() {
   }
 
   el('careerOutput').innerHTML = html;
+}
+
+// === Saved Natives (CSV-backed) ===
+// fileHandle is a File System Access API handle (Chrome/Edge only) kept
+// live across Save/Delete calls so they write back to the SAME file
+// without a repeated file dialog; null means either no file is connected
+// yet, or the browser doesn't support that API (plain <input type=file>
+// fallback below, read-only — saves then trigger a download instead).
+let savedNativesState = { fileHandle: null, fileName: null, records: [] };
+
+function escapeHtml(str) {
+  return String(str === undefined || str === null ? '' : str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function initSavedNativesTab() {
+  el('savedNativesLogicOutput').innerHTML = renderLogicDetails(SAVED_NATIVES_LOGIC_TEXT);
+  el('savedNativesConnectBtn').addEventListener('click', connectNativesCsvFile);
+  el('savedNativesFileInput').addEventListener('change', handleNativesFileInputChange);
+  el('savedNativesNewFileBtn').addEventListener('click', startNewNativesCsv);
+  el('saveNativeBtn').addEventListener('click', saveCurrentNativeToCsv);
+  el('savedNativesSearch').addEventListener('input', renderSavedNativesTable);
+  renderSavedNativesTable();
+}
+
+// Browse for an existing CSV. Uses the File System Access API (keeps a
+// live, writable handle) where supported; falls back to a plain file
+// input (read-only — see handleNativesFileInputChange) otherwise.
+async function connectNativesCsvFile() {
+  if ('showOpenFilePicker' in window) {
+    let handle;
+    try {
+      [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'CSV files', accept: { 'text/csv': ['.csv'] } }]
+      });
+    } catch (e) {
+      return; // user cancelled the picker — not an error
+    }
+    try {
+      if ((await handle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
+        await handle.requestPermission({ mode: 'readwrite' });
+      }
+      const file = await handle.getFile();
+      const text = await file.text();
+      savedNativesState.fileHandle = handle;
+      savedNativesState.fileName = handle.name;
+      savedNativesState.records = parseNativesCsvText(text);
+      renderSavedNativesTable();
+      el('savedNativesStatus').textContent = `Connected: ${handle.name} (${savedNativesState.records.length} record(s)). Future saves write directly to this file.`;
+    } catch (e) {
+      el('savedNativesStatus').textContent = 'Could not open/read that file: ' + e.message;
+    }
+  } else {
+    el('savedNativesFileInput').click();
+  }
+}
+
+// Fallback path for browsers without the File System Access API (Firefox,
+// Safari): loads the CSV read-only via a plain file input; saves from here
+// on trigger a download instead of writing back in place.
+function handleNativesFileInputChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    savedNativesState.fileHandle = null;
+    savedNativesState.fileName = file.name;
+    savedNativesState.records = parseNativesCsvText(evt.target.result);
+    renderSavedNativesTable();
+    el('savedNativesStatus').textContent = `Loaded ${file.name} (${savedNativesState.records.length} record(s)) — this browser can't write back to it directly, so Save will download an updated copy for you to replace it with.`;
+  };
+  reader.readAsText(file);
+}
+
+async function startNewNativesCsv() {
+  savedNativesState.records = [];
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: 'natives.csv',
+        types: [{ description: 'CSV files', accept: { 'text/csv': ['.csv'] } }]
+      });
+      savedNativesState.fileHandle = handle;
+      savedNativesState.fileName = handle.name;
+      await writeNativesCsvToFile();
+      el('savedNativesStatus').textContent = `Created new file: ${handle.name}. Future saves write directly to it.`;
+    } catch (e) {
+      if (e.name !== 'AbortError') el('savedNativesStatus').textContent = 'Could not create file: ' + e.message;
+      return;
+    }
+  } else {
+    savedNativesState.fileHandle = null;
+    savedNativesState.fileName = 'natives.csv';
+    el('savedNativesStatus').textContent = 'Starting a new list — this browser will download natives.csv the first time you save.';
+  }
+  renderSavedNativesTable();
+}
+
+// Writes the in-memory record list back to the connected file (if the
+// File System Access handle is available) or falls back to a browser
+// download. Returns true if it wrote directly to disk, false if it fell
+// back to a download.
+async function writeNativesCsvToFile() {
+  const text = nativesToCsvText(savedNativesState.records);
+  if (savedNativesState.fileHandle) {
+    try {
+      const writable = await savedNativesState.fileHandle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      return true;
+    } catch (e) {
+      el('savedNativesStatus').textContent = 'Failed to write to the connected file (' + e.message + ') — downloading a copy instead.';
+    }
+  }
+  downloadNativesCsv(text);
+  return false;
+}
+
+function downloadNativesCsv(text) {
+  const blob = new Blob([text], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = savedNativesState.fileName || 'natives.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Gathers this tab's identity fields + the Chart & Analysis tab's CURRENT
+// birth fields into one record. UTCOffset holds whichever value is
+// actually active (offset string or IANA zone name) — see
+// savedNatives.js's own logic notes for why one column covers both.
+function collectCurrentNativeRecord() {
+  return {
+    name: el('nativeName').value.trim(),
+    sex: el('nativeSex').value,
+    location: el('nativeLocation').value.trim(),
+    city: el('nativeCity').value.trim(),
+    state: el('nativeState').value.trim(),
+    country: el('nativeCountry').value.trim(),
+    birthDate: el('birthLocalDate').value,
+    birthTime: el('birthLocalTime').value,
+    latitude: el('birthLat').value,
+    longitude: el('birthLon').value,
+    timezoneMode: el('timezoneMode').value,
+    utcOffset: el('timezoneMode').value === 'iana' ? el('ianaZone').value : el('utcOffset').value,
+    notes: el('nativeNotes').value.trim()
+  };
+}
+
+async function saveCurrentNativeToCsv() {
+  const rec = collectCurrentNativeRecord();
+  if (!rec.name) { el('savedNativesStatus').textContent = 'Enter a Name before saving.'; return; }
+  if (!rec.birthDate || !rec.birthTime || !rec.latitude || !rec.longitude) {
+    el('savedNativesStatus').textContent = 'Enter Birth Date, Time, Latitude, and Longitude in the Chart & Analysis tab before saving.';
+    return;
+  }
+
+  const idx = findNativeIndexByName(savedNativesState.records, rec.name);
+  const isUpdate = idx >= 0;
+  if (isUpdate) savedNativesState.records[idx] = rec;
+  else savedNativesState.records.push(rec);
+
+  renderSavedNativesTable();
+  const wroteDirectly = await writeNativesCsvToFile();
+  el('savedNativesStatus').textContent = wroteDirectly
+    ? `${isUpdate ? 'Updated' : 'Saved'} "${rec.name}" — written directly to ${savedNativesState.fileName}.`
+    : `${isUpdate ? 'Updated' : 'Saved'} "${rec.name}" — downloaded an updated ${savedNativesState.fileName || 'natives.csv'} (replace your existing file with this download).`;
+}
+
+// Populates the birth fields (Chart & Analysis tab) and this tab's
+// identity fields from a saved record, then immediately regenerates the
+// full chart and every dependent tab — same as clicking "Generate Full
+// Chart" yourself, so selecting a native is a genuine one-click load.
+function loadNativeRecord(rec) {
+  el('nativeName').value = rec.name || '';
+  el('nativeSex').value = rec.sex || '';
+  el('nativeLocation').value = rec.location || '';
+  el('nativeCity').value = rec.city || '';
+  el('nativeState').value = rec.state || '';
+  el('nativeCountry').value = rec.country || '';
+  el('nativeNotes').value = rec.notes || '';
+
+  el('birthLocalDate').value = rec.birthDate || '';
+  el('birthLocalTime').value = rec.birthTime || '';
+  el('birthLat').value = rec.latitude || '';
+  el('birthLon').value = rec.longitude || '';
+  el('timezoneMode').value = rec.timezoneMode === 'iana' ? 'iana' : 'offset';
+  toggleTimezoneModeInputs();
+  if (rec.timezoneMode === 'iana') setIanaZoneSelectValue(el('ianaZone'), rec.utcOffset || '');
+  else el('utcOffset').value = rec.utcOffset || '';
+
+  BIRTH_INPUT_IDS.forEach(id => {
+    el(id).classList.remove('birth-input-reset', 'birth-input-submitted');
+    el(id).classList.add('birth-input-pending');
+  });
+  saveDefaultBirthDetails();
+
+  switchTab('tabMain');
+  lastGeneratedSignature = null; // force regeneration even if this exact signature was seen before
+  generateFullChart();
+  el('statusMsg').textContent = `Loaded "${rec.name}" from Saved Natives and generated the full chart.`;
+}
+
+function renderSavedNativesTable() {
+  const query = el('savedNativesSearch').value;
+  const filtered = savedNativesState.records
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => nativeMatchesQuery(r, query));
+
+  let html = `<p style="font-size:0.85em;color:#666;">${filtered.length} of ${savedNativesState.records.length} record(s) shown.</p>`;
+  html += '<table><thead><tr><th>Name</th><th>Sex</th><th>City</th><th>State</th><th>Country</th><th>Birth Date</th><th>Birth Time</th><th>Notes</th><th></th></tr></thead><tbody>';
+  filtered.forEach(({ r, i }) => {
+    html += `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.sex)}</td><td>${escapeHtml(r.city)}</td><td>${escapeHtml(r.state)}</td><td>${escapeHtml(r.country)}</td><td>${escapeHtml(r.birthDate)}</td><td>${escapeHtml(r.birthTime)}</td><td>${escapeHtml(r.notes)}</td>` +
+      `<td><button type="button" class="native-load-btn" data-index="${i}">Load</button> <button type="button" class="native-delete-btn" data-index="${i}">Delete</button></td></tr>`;
+  });
+  if (!filtered.length) html += '<tr><td colspan="9">No records yet — connect/start a CSV file above, then Save the current chart\'s native.</td></tr>';
+  html += '</tbody></table>';
+  el('savedNativesTable').innerHTML = html;
+
+  el('savedNativesTable').querySelectorAll('.native-load-btn').forEach(btn => {
+    btn.addEventListener('click', () => loadNativeRecord(savedNativesState.records[Number(btn.dataset.index)]));
+  });
+  el('savedNativesTable').querySelectorAll('.native-delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idx = Number(btn.dataset.index);
+      const rec = savedNativesState.records[idx];
+      if (!confirm(`Delete "${rec.name}" from the CSV? This cannot be undone.`)) return;
+      savedNativesState.records.splice(idx, 1);
+      renderSavedNativesTable();
+      const wroteDirectly = await writeNativesCsvToFile();
+      el('savedNativesStatus').textContent = wroteDirectly
+        ? `Deleted "${rec.name}" — written directly to ${savedNativesState.fileName}.`
+        : `Deleted "${rec.name}" — downloaded an updated ${savedNativesState.fileName || 'natives.csv'} (replace your existing file with this download).`;
+    });
+  });
 }
 
 // Each life topic gets its own pastel-colored card, cycled through this list.

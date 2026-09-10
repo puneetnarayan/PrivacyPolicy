@@ -5,6 +5,50 @@ clear what's real vs. deferred at any point.
 
 ## Done
 
+- **"Saved Natives" tab — CSV-backed save/search/load** (`js/savedNatives.js`,
+  `js/ui.js`, `index.html`): save a native's identity (Name, Sex,
+  Location, City, State, Country, Notes) plus the CURRENT Chart &
+  Analysis tab's birth fields (Birth Date, Birth Time, Latitude,
+  Longitude, Timezone Mode, UTC Offset/IANA zone) to a plain CSV file,
+  search across every field, and load any saved native back with one
+  click — which repopulates the birth fields and immediately regenerates
+  the full chart, same as pressing "Generate Full Chart" yourself.
+  Additive only — reads/writes the SAME birth fields every other tab
+  already uses; no calculation file touched.
+  - **File access**: in Chrome/Edge, "Browse / Connect CSV File" (and
+    "Start a New (Empty) CSV") use the File System Access API to keep a
+    live, writable file handle — every Save/Delete writes straight back
+    to that file with no repeated file dialogs. In browsers without that
+    API (Firefox, Safari), the file loads read-only via a plain
+    `<input type=file>`, and Save/Delete instead trigger a fresh CSV
+    download to manually replace the file with — this app is a static
+    offline page with no server, so a real always-automatic write isn't
+    possible there without the Electron wrapper's Node `fs` access
+    (unfinished/not installer-packaged yet), which was flagged as the
+    honest trade-off rather than silently promising full automation
+    everywhere.
+  - **CSV format**: `js/savedNatives.js` has its own small RFC4180-style
+    parser/serializer (handles quoted fields, embedded commas, and
+    embedded newlines in Notes) — the existing `parseCsvBundle()` used
+    for planet/cusp uploads is a plain comma-split and isn't safe for
+    free-text fields, so this is a separate, purpose-built implementation
+    rather than reusing/stretching that one. Columns are matched by
+    header NAME on load, not position, so a reordered or partially
+    edited CSV still loads correctly. `UTCOffset` holds whichever value
+    is actually active (an offset string or an IANA zone name) in one
+    column, documented in the tab's own logic notes.
+  - Save matches an existing record by Name (case-insensitive) and
+    updates it in place; otherwise appends a new row.
+  - Verified via Playwright (fallback file-input path, since the native
+    file-picker dialogs aren't automatable): save with no file connected
+    correctly downloads a well-formed CSV (including a Notes field
+    containing a comma, verified byte-for-byte); loading a CSV via the
+    fallback input populates the search table; search filters correctly
+    (including the "no matches" case); clicking Load switches to the
+    Main tab, populates all birth fields, and regenerates the chart
+    (verified via a real 9-row planet table and the status message);
+    Delete removes the record and produces a correctly-updated CSV. Full
+    existing regression suite still passes.
 - **Vimshottari Dasha (4 Levels) tab: light-yellow selection highlight**
   (`js/ui.js`, `index.html`): clicking any lord to open its sub-periods
   now also highlights that clicked row in light yellow
