@@ -115,6 +115,17 @@
   .career-signal { padding: 8px 12px; border-radius: 6px; margin: 6px 0; border-left: 4px solid #999; }
   .career-signal-flagged { border-left-color: #c62828; background-color: #fdecea; }
   .career-signal-ok { border-left-color: #2e7d32; background-color: #eaf7e0; }
+
+  /* Career Type Spectrum: 4 vertical bars sharing one baseline. */
+  .career-spectrum { display: flex; align-items: flex-end; gap: 18px; height: 120px; margin: 10px 0 4px; }
+  .career-spectrum-bar { display: flex; align-items: flex-end; height: 100%; width: 60px; background: rgba(0,0,0,0.06); border-radius: 4px; }
+  .career-spectrum-fill { width: 100%; background-color: #9b7fd4; border-radius: 4px 4px 0 0; display: flex; align-items: flex-start; justify-content: center; color: #fff; font-size: 0.75em; font-weight: bold; padding-top: 2px; }
+  .career-spectrum-label { text-align: center; width: 60px; font-size: 0.75em; margin-top: 4px; }
+
+  /* Caution / Hazy Blocks: distinct muted amber, dashed border, warning icon. */
+  .career-caution-tag { background-color: #fff3cd; color: #8a6d3b; border: 1px solid #f0c36d; border-radius: 4px; padding: 1px 6px; font-size: 0.8em; font-weight: bold; }
+  .career-caution-block { background-color: #fff8e6; border: 2px dashed #e0a800; border-radius: 8px; padding: 10px 14px; margin: 10px 0; }
+  .career-caution-block ul { margin: 4px 0; }
 </style>
 </head>
 <body>
@@ -565,7 +576,7 @@
 
 <div class="tab-panel" id="tabCareer">
 <h2>Profession &amp; Career</h2>
-<p>Uses the CURRENTLY LOADED chart (Chart &amp; Analysis tab). Job vs. Business suitability from the 10th/6th/7th cusp Sub Lord chains, plus interview/scheduling, payment-risk, and foreign/offsite signal checks, and Vastu-style workspace direction from the 10th (or 2nd/11th) cusp sign. This is one specific, documented rule set — see the logic notes below — not settled classical doctrine, and is kept separate from the KP Default/Four-Step/Khullar/Bhaskaran/Naadi tabs' own significator logic.</p>
+<p>Uses the CURRENTLY LOADED chart (Chart &amp; Analysis tab). Job vs. Business suitability — now dynamically blended with the CURRENT Dasha/Bhukti period — from the 10th/6th/7th cusp Sub Lord chains, a 4-way Career Type Spectrum (Corporate/Enterprise/Freelance/Equity), interview/scheduling/payment-risk/foreign-offsite signal checks, a Confidence &amp; Caution scoring system flagging any hazy or conflicting output, and a secondary/optional Vastu workspace-direction guide. This is one specific, documented rule set — see the logic notes below — not settled classical doctrine, and is kept separate from the KP Default/Four-Step/Khullar/Bhaskaran/Naadi tabs' own significator logic.</p>
 <div id="careerLogicOutput"></div>
 <div class="controls"><button id="refreshCareerBtn">Refresh</button></div>
 <div id="careerOutput"></div>

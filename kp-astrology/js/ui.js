@@ -1575,6 +1575,32 @@ function careerScoreStepHtml(scoreLabel, rule, score) {
     `Secondary houses (${rule.secondary.join(',')}) hit: ${houseListText(score.secondaryHits)} (×1 each = ${score.secondaryHits.length}) → <strong>Score = ${score.score}</strong></p>`;
 }
 
+function careerConfidenceTag(conf) {
+  if (!conf.flagged) return '';
+  return ` <span class="career-caution-tag">⚠ ${conf.badge}</span>`;
+}
+
+// Dedicated "Caution / Hazy Block" per the spec's UI component
+// requirement — muted amber background, warning icon, dashed border,
+// feature name, status badge, reasoning, and mitigation advice. Built
+// purely from the confidence evaluation already computed (no recalculation).
+const CAREER_MITIGATION_ADVICE = {
+  'Job vs. Business Classification': 'Cross-check against the Four-Step, Khullar, Bhaskaran, and Naadi tabs before committing to a major career decision, and revisit this reading after the current Bhukti transitions.',
+  'Interview Success Projection': 'Confirm interview/appointment schedules manually and build in extra buffer time until this signal firms up.',
+  'Payment & Cashflow Risk': 'Insist on written contracts and advance/staged payments as a precaution, regardless of the reading above.',
+  'Foreign / Offsite Opportunity': 'Treat remote/foreign leads as speculative for now rather than a confirmed direction.',
+  'Workspace Vastu Direction': 'Treat this as a secondary/optional alignment factor only — prioritize practical room and property constraints over directional guidance.'
+};
+
+function careerCautionBlockHtml(conf) {
+  const reasonsHtml = conf.reasons.length ? conf.reasons.map(r => `<li>${r}</li>`).join('') : '<li>Confidence fell below the 65% display threshold.</li>';
+  return `<div class="career-caution-block">
+    <p><strong>⚠ ${conf.featureName}</strong> — <span class="career-caution-tag">[ ${conf.badge} ]</span> (Confidence: ${conf.confidence}%)</p>
+    <p><strong>Reasoning:</strong></p><ul>${reasonsHtml}</ul>
+    <p><strong>Mitigation / Practical Advice:</strong> ${CAREER_MITIGATION_ADVICE[conf.featureName] || 'Treat this specific reading with extra caution and re-check after new chart data or a period change.'}</p>
+  </div>`;
+}
+
 function renderCareerTab() {
   const chartData = buildMethodologyChartData();
   if (!chartData) { el('careerOutput').innerHTML = noChartLoadedHtml('Profession & Career'); return; }
@@ -1583,80 +1609,138 @@ function renderCareerTab() {
   const birthDateTime = birthStr ? new Date(birthStr) : null;
   const a = analyzeCareer(chartData, birthDateTime);
   const jb = a.jobVsBusiness;
+  const fs = a.finalScore;
+  const overlay = a.dashaBhuktiOverlay;
   const { significators } = chartData;
 
-  // 1. Header Overview
+  // 1. Header Overview — the DYNAMIC (Dasha/Bhukti-blended) Job vs.
+  // Business result, per Rule D. Falls back to the static-only result
+  // when no dasha is available (fs.usedOverlay === false), clearly noted.
   let html = '<h3>Overview</h3>';
-  html += `<p><strong>Primary Recommendation: ${jb.recommendation}</strong></p>`;
+  html += `<p><strong>Primary Recommendation: ${fs.finalRecommendation}</strong>${fs.usedOverlay ? ' <span style="font-size:0.8em;color:#666;">(dynamic — includes current Dasha/Bhukti)</span>' : ' <span style="font-size:0.8em;color:#666;">(static only — enter Moon Longitude and Birth Date/Time to include the active period)</span>'}</p>`;
   html += `<div class="career-bar">
-    <div class="career-bar-job" style="width:${jb.jobPct}%;">${jb.jobPct > 12 ? 'Job ' + jb.jobPct + '%' : ''}</div>
-    <div class="career-bar-business" style="width:${jb.businessPct}%;">${jb.businessPct > 12 ? 'Business ' + jb.businessPct + '%' : ''}</div>
+    <div class="career-bar-job" style="width:${fs.finalJobPct}%;">${fs.finalJobPct > 12 ? 'Job ' + fs.finalJobPct + '%' : ''}</div>
+    <div class="career-bar-business" style="width:${fs.finalBusinessPct}%;">${fs.finalBusinessPct > 12 ? 'Business ' + fs.finalBusinessPct + '%' : ''}</div>
   </div>`;
   if (jb.obstacleScore > 0) {
     html += `<p style="color:#a04000;">Career Obstacle signal present (houses ${houseListText(jb.negativeHits)})${jb.resignationComboComplete ? ' — full Resignation/Break combination (1,5,9) is active.' : '.'}</p>`;
   }
 
-  // 1a. How the Job vs. Business result was calculated — every step in
-  // order: identify the three CSL chains, list each chain planet's own
-  // significator houses, union them, score Job vs. Business against the
-  // documented house sets, then derive the percentages and threshold call.
   html += `<details open><summary>How was the Job vs. Business result calculated?</summary>`;
-  html += `<p><strong>Step 1 — Identify the three cusp chains (10th, 6th, 7th) and their significator houses:</strong></p>`;
+  html += `<p><strong>Step 1 — Identify the three cusp chains (10th, 6th, 7th) and their significator houses (Static Score basis):</strong></p>`;
   html += careerChainStepHtml(jb.chain10, significators, 'Chain A (10th cusp — career/status)');
   html += careerChainStepHtml(jb.chain6, significators, 'Chain B (6th cusp — service/routine work)');
   html += careerChainStepHtml(jb.chain7, significators, 'Chain C (7th cusp — partnership/business)');
   html += `<p><strong>Step 2 — Union all three chains' houses:</strong> ${houseListText(jb.unionHouses)}</p>`;
-  html += `<p><strong>Step 3 — Score Job vs. Business against that combined house list:</strong></p>`;
-  html += careerScoreStepHtml('Job score', CAREER_HOUSE_RULES.job, jb.job);
-  html += careerScoreStepHtml('Business score', CAREER_HOUSE_RULES.business, jb.business);
-  const totalJB = jb.job.score + jb.business.score;
-  html += `<p><strong>Step 4 — Convert to percentages:</strong> Job% = ${jb.job.score} ÷ (${jb.job.score}+${jb.business.score}) × 100 = <strong>${jb.jobPct}%</strong>; Business% = 100 − ${jb.jobPct} = <strong>${jb.businessPct}%</strong>.${totalJB === 0 ? ' (Neither score has hits — defaulted to 50/50.)' : ''}</p>`;
-  html += `<p><strong>Step 5 — Apply the recommendation rule:</strong> |Job% − Business%| = ${Math.abs(jb.jobPct - jb.businessPct)}. ${Math.abs(jb.jobPct - jb.businessPct) < 15
+  html += `<p><strong>Step 3 — Static Score (S<sub>static</sub>):</strong></p>`;
+  html += careerScoreStepHtml('Job (static)', CAREER_HOUSE_RULES.job, jb.job);
+  html += careerScoreStepHtml('Business (static)', CAREER_HOUSE_RULES.business, jb.business);
+  if (fs.usedOverlay) {
+    html += `<p><strong>Step 4 — Active Period Scores</strong> (from the CURRENT Dasha lord ${abbr(overlay.dashaLord)}'s script [${overlay.dashaScript.map(abbr).join(', ')}] and Bhukti lord ${abbr(overlay.bhuktiLord)}'s script [${overlay.bhuktiScript.map(abbr).join(', ')}]):</p>`;
+    html += careerScoreStepHtml('Job (S_bhukti)', CAREER_HOUSE_RULES.job, overlay.jobBhukti);
+    html += careerScoreStepHtml('Business (S_bhukti)', CAREER_HOUSE_RULES.business, overlay.businessBhukti);
+    html += careerScoreStepHtml('Job (S_dasha)', CAREER_HOUSE_RULES.job, overlay.jobDasha);
+    html += careerScoreStepHtml('Business (S_dasha)', CAREER_HOUSE_RULES.business, overlay.businessDasha);
+    html += `<p><strong>Step 5 — Final Career Score</strong> = 0.4×Static + 0.4×Bhukti + 0.2×Dasha:</p>`;
+    html += `<p style="margin:2px 0;">Job: 0.4×${jb.job.score} + 0.4×${overlay.jobBhukti.score} + 0.2×${overlay.jobDasha.score} = <strong>${fs.finalJobScore.toFixed(1)}</strong></p>`;
+    html += `<p style="margin:2px 0;">Business: 0.4×${jb.business.score} + 0.4×${overlay.businessBhukti.score} + 0.2×${overlay.businessDasha.score} = <strong>${fs.finalBusinessScore.toFixed(1)}</strong></p>`;
+    html += `<p><strong>Step 6 — Convert to percentages:</strong> Job% = ${fs.finalJobScore.toFixed(1)} ÷ (${fs.finalJobScore.toFixed(1)}+${fs.finalBusinessScore.toFixed(1)}) × 100, rounded to the nearest 5 = <strong>${fs.finalJobPct}%</strong>; Business% = 100 − ${fs.finalJobPct} = <strong>${fs.finalBusinessPct}%</strong>.</p>`;
+  } else {
+    html += `<p><strong>Step 4 — Active Period Scores:</strong> not available (enter Moon Longitude and Birth Date/Time (UTC) in the Chart &amp; Analysis tab) — Final Score falls back to the Static Score alone.</p>`;
+  }
+  html += `<p><strong>Step 7 — Apply the recommendation rule:</strong> |Job% − Business%| = ${Math.abs(fs.finalJobPct - fs.finalBusinessPct)}. ${Math.abs(fs.finalJobPct - fs.finalBusinessPct) < 15
     ? 'This is under the 15-point threshold, so the result is read as "Hybrid / Freelancing / Contractual" rather than a one-sided call.'
-    : `This is 15 or more, so the higher side (${jb.jobPct > jb.businessPct ? 'Job' : 'Business'}) is called: "${jb.recommendation}".`}</p>`;
-  html += `<p><strong>Step 6 — Career Obstacle check (from the same union of houses):</strong> Obstacle houses (5,8,12) hit: ${houseListText(jb.negativeHits)} (×2 each = ${jb.negativeHits.length * 2}); Resignation/Break combination (1,5,9) ${jb.resignationComboComplete ? 'is FULLY present (+3)' : `only partially present (${houseListText(jb.resignationComboHits)}, +0)`} → <strong>Obstacle score = ${jb.obstacleScore}</strong>. This is reported separately and does not change the Job/Business percentages above.</p>`;
+    : `This is 15 or more, so the higher side (${fs.finalJobPct > fs.finalBusinessPct ? 'Job' : 'Business'}) is called: "${fs.finalRecommendation}".`}</p>`;
+  html += `<p><strong>Step 8 — Career Obstacle check (from the static union of houses):</strong> Obstacle houses (5,8,12) hit: ${houseListText(jb.negativeHits)} (×2 each = ${jb.negativeHits.length * 2}); Resignation/Break combination (1,5,9) ${jb.resignationComboComplete ? 'is FULLY present (+3)' : `only partially present (${houseListText(jb.resignationComboHits)}, +0)`} → <strong>Obstacle score = ${jb.obstacleScore}</strong>. Reported separately, never folded into the percentages.</p>`;
+  if (a.confidence.jobVsBusiness.flagged) html += `<p>${careerConfidenceTag(a.confidence.jobVsBusiness)} — see the Caution / Hazy Blocks section below for the full reasoning.</p>`;
   html += `</details>`;
 
-  // 2. Key House Analysis Card
+  // 2. Dynamic Career Spectrum (Rule E) — modern blended/hybrid scenarios,
+  // shown as a 4-way percentage spectrum rather than a single label.
+  const hs = a.hybridSpectrum;
+  html += '<h3>Career Type Spectrum</h3><div class="output-box pastel-lavender">';
+  html += `<p><strong>Best-fit classification: ${hs.classification}</strong></p>`;
+  html += '<div class="career-spectrum">';
+  [['corporate', 'Corporate Job'], ['enterprise', 'Enterprise Business'], ['freelance', 'Freelance/Consulting'], ['equity', 'Equity/Partnership']].forEach(([key, label]) => {
+    html += `<div class="career-spectrum-bar"><div class="career-spectrum-fill" style="height:${Math.max(6, hs.percentages[key])}%;">${hs.percentages[key]}%</div></div><div class="career-spectrum-label">${label}</div>`;
+  });
+  html += '</div>';
+  html += `<details><summary>How was this calculated?</summary><p>From the same combined significator houses as the Job/Business union above (${houseListText(jb.unionHouses)}), checked against four house patterns:</p><ul>` +
+    `<li>Corporate (6,10,11, with 7 absent): ${hs.raw.corporate} of 3 houses hit</li>` +
+    `<li>Enterprise (7,10,11, with 6 absent): ${hs.raw.enterprise} of 3 houses hit</li>` +
+    `<li>Freelance (6, 7, and 3 all present): ${hs.raw.freelance} of 3 houses hit</li>` +
+    `<li>Equity (7, 8, 11): ${hs.raw.equity} of 3 houses hit</li>` +
+    `</ul><p>Percentages are each bucket's share of the total hits across all four (rounded to the nearest 5, drift corrected on the largest bucket).</p></details>`;
+  html += '</div>';
+
+  // 3. Active Period Impact Alert (Rule D)
+  html += '<h3>Active Period Impact Alert</h3><div class="output-box pastel-peach">';
+  if (!overlay.available) {
+    html += '<p>Not available — enter Moon Longitude and Birth Date/Time (UTC) in the Chart &amp; Analysis tab to see the active Dasha/Bhukti overlay.</p>';
+  } else {
+    html += `<p>Current Mahadasha (Dasha): <strong>${abbr(overlay.dashaLord)}</strong> (script: ${overlay.dashaScript.map(abbr).join(', ')} → houses ${houseListText(overlay.dashaHouses)})</p>`;
+    html += `<p>Current Antardasha (Bhukti): <strong>${abbr(overlay.bhuktiLord)}</strong> (script: ${overlay.bhuktiScript.map(abbr).join(', ')} → houses ${houseListText(overlay.bhuktiHouses)})</p>`;
+    if (a.periodWarnings.length) {
+      a.periodWarnings.forEach(w => {
+        html += `<div class="career-signal career-signal-flagged"><strong>⚠ Period Alert:</strong> ${w.message} <span style="font-size:0.85em;color:#666;">(evidence: houses ${houseListText(w.evidence)} in the Bhukti lord's script)</span></div>`;
+      });
+    } else {
+      html += '<div class="career-signal career-signal-ok">No period-conflict alert is currently active — the static reading and the active Bhukti lord\'s script are not in strong opposition.</div>';
+    }
+  }
+  html += '</div>';
+
+  // 4. Standard High-Confidence Insights — Key House Analysis
   html += '<h3>Key House Analysis</h3><div class="output-box pastel-blue">';
   html += '<p>Positive (Job/Business) houses:</p><div class="career-pills">';
   [2, 6, 7, 10, 11].forEach(h => { html += careerPillHtml(h, jb.unionHouses.includes(h), true); });
   html += '</div><p>Obstacle houses:</p><div class="career-pills">';
   [5, 8, 12].forEach(h => { html += careerPillHtml(h, jb.unionHouses.includes(h), false); });
   html += '</div>';
-  html += `<p style="font-size:0.85em;color:#666;">From the 10th CSL (${abbr(jb.chain10.csl)}), 6th CSL (${abbr(jb.chain6.csl)}), and 7th CSL (${abbr(jb.chain7.csl)}) chains — combined significator houses: ${houseListText(jb.unionHouses)}. (Same union as Step 2 above.)</p>`;
+  html += `<p style="font-size:0.85em;color:#666;">From the 10th CSL (${abbr(jb.chain10.csl)}), 6th CSL (${abbr(jb.chain6.csl)}), and 7th CSL (${abbr(jb.chain7.csl)}) chains — combined significator houses: ${houseListText(jb.unionHouses)}.</p>`;
   html += '</div>';
 
-  // 3. Actionable Career Signals — each with its own inline "how this was
-  // determined" trace, showing the exact chain and condition evaluated.
+  // Actionable Career Signals — each with its own inline trace.
   html += '<h3>Actionable Career Signals</h3>';
 
-  html += `<div class="career-signal ${a.interview.flagged ? 'career-signal-flagged' : 'career-signal-ok'}"><strong>Interview &amp; Scheduling:</strong> ${a.interview.message}`;
+  html += `<div class="career-signal ${a.interview.flagged ? 'career-signal-flagged' : 'career-signal-ok'}"><strong>Interview &amp; Scheduling:</strong> ${a.interview.message}${careerConfidenceTag(a.confidence.interview)}`;
   html += `<details><summary>How was this calculated?</summary><p>Chain checked: 3rd cusp Sub Lord + that lord's own Star Lord (${a.interview.chainPlanets.map(abbr).join(', ') || '—'}) → significator houses: ${houseListText(a.interview.houses)}.</p>` +
     `<p>Condition: signifies an obstacle house (5, 8, or 12) <strong>AND</strong> does NOT signify a support house (10 or 11). ` +
-    `Obstacle hit: ${a.interview.houses.some(h => [5, 8, 12].includes(h)) ? 'yes' : 'no'}; Support hit: ${a.interview.houses.some(h => [10, 11].includes(h)) ? 'yes' : 'no'} → Flagged: <strong>${a.interview.flagged ? 'YES' : 'no'}</strong>.</p></details></div>`;
+    `Obstacle hit: ${a.interview.houses.some(h => [5, 8, 12].includes(h)) ? 'yes' : 'no'}; Support hit: ${a.interview.houses.some(h => [10, 11].includes(h)) ? 'yes' : 'no'} → Flagged: <strong>${a.interview.flagged ? 'YES' : 'no'}</strong>. Confidence: ${a.confidence.interview.confidence}%.</p></details></div>`;
 
-  html += `<div class="career-signal ${a.paymentRisk.flagged ? 'career-signal-flagged' : 'career-signal-ok'}"><strong>Payment &amp; Cashflow:</strong> ${a.paymentRisk.message}`;
+  html += `<div class="career-signal ${a.paymentRisk.flagged ? 'career-signal-flagged' : 'career-signal-ok'}"><strong>Payment &amp; Cashflow:</strong> ${a.paymentRisk.message}${careerConfidenceTag(a.confidence.paymentRisk)}`;
   html += `<details><summary>How was this calculated?</summary>` +
     careerChainStepHtml(a.paymentRisk.chain2, significators, '2nd cusp chain') +
     careerChainStepHtml(a.paymentRisk.chain11, significators, '11th cusp chain') +
-    `<p>Combined financial-script houses: ${houseListText(a.paymentRisk.financeHouses)}. Condition: signifies 5 or 8 <strong>AND</strong> does NOT signify 2 or 11 → Flagged: <strong>${a.paymentRisk.flagged ? 'YES' : 'no'}</strong>.</p></details></div>`;
+    `<p>Combined financial-script houses: ${houseListText(a.paymentRisk.financeHouses)}. Condition: signifies 5 or 8 <strong>AND</strong> does NOT signify 2 or 11 → Flagged: <strong>${a.paymentRisk.flagged ? 'YES' : 'no'}</strong>. Confidence: ${a.confidence.paymentRisk.confidence}%.</p></details></div>`;
 
-  html += `<div class="career-signal ${a.foreignOpportunity.flagged ? 'career-signal-flagged' : 'career-signal-ok'}"><strong>Foreign / Offsite Opportunity:</strong> ${a.foreignOpportunity.message}`;
+  html += `<div class="career-signal ${a.foreignOpportunity.flagged ? 'career-signal-flagged' : 'career-signal-ok'}"><strong>Foreign / Offsite Opportunity:</strong> ${a.foreignOpportunity.message}${careerConfidenceTag(a.confidence.foreignOpportunity)}`;
   html += `<details><summary>How was this calculated?</summary><p>Combined 6th+10th cusp chain houses: ${houseListText(a.foreignOpportunity.houses)}.</p>` +
-    `<p>Condition: at least 2 of houses {9, 12, 3} present — matched: ${houseListText(a.foreignOpportunity.hits)} (${a.foreignOpportunity.hits.length} of 3) → Flagged: <strong>${a.foreignOpportunity.flagged ? 'YES' : 'no'}</strong>.</p></details></div>`;
+    `<p>Condition: at least 2 of houses {9, 12, 3} present — matched: ${houseListText(a.foreignOpportunity.hits)} (${a.foreignOpportunity.hits.length} of 3) → Flagged: <strong>${a.foreignOpportunity.flagged ? 'YES' : 'no'}</strong>. Confidence: ${a.confidence.foreignOpportunity.confidence}%.</p></details></div>`;
 
-  // 4. Practical Advice & Directional Guidance
-  html += '<h3>Practical Advice &amp; Directional Guidance</h3><div class="output-box pastel-mint">';
+  // 5. Practical Advice & "Secondary / Optional Alignment Strategy" (Rule
+  // C, demoted per explicit instruction — never presented as a primary
+  // career factor).
+  html += '<h3>Practical Advice &amp; Secondary / Optional Alignment Strategy</h3><div class="output-box pastel-mint">';
   if (a.paymentRisk.flagged) html += '<p>💡 Collect advance payments where possible; avoid fully deferred/back-loaded payment terms.</p>';
   if (a.interview.flagged) html += '<p>💡 Build schedule buffers around interviews/appointments; confirm timings a day ahead.</p>';
   if (a.foreignOpportunity.flagged) html += '<p>💡 Actively explore remote/foreign-client or overseas-transfer options — the chart supports it.</p>';
   const wd = a.workspaceDirection;
   html += wd.direction
-    ? `<p><strong>Workspace Direction:</strong> ${wd.sign} (house ${wd.house}, ${wd.element} element) → face/seat toward <strong>${wd.direction}</strong> for office/business setups.</p>
+    ? `<p><strong>Workspace Vastu Direction${careerConfidenceTag(a.confidence.workspaceDirection)}:</strong> ${wd.sign} (house ${wd.house}, ${wd.element} element) → face/seat toward <strong>${wd.direction}</strong> for office/business setups.</p>
        <details><summary>How was this calculated?</summary><p>Checked, in order: 10th cusp sign, then 2nd, then 11th — first one with a mapped sign wins. House ${wd.house}'s sign is <strong>${wd.sign}</strong>, a <strong>${wd.element}</strong> sign, which maps to <strong>${wd.direction}</strong> (Fire→East, Earth→South, Air→West, Water→North).</p></details>`
-    : '<p><strong>Workspace Direction:</strong> Not available — 10th/2nd/11th cusp sign not found in the currently loaded chart.</p>';
+    : '<p><strong>Workspace Vastu Direction:</strong> Not available — 10th/2nd/11th cusp sign not found in the currently loaded chart.</p>';
+  html += '<p style="font-size:0.8em;color:#8a6d3b;font-style:italic;">Directional alignments are secondary astrological factors and should be secondary to practical room/property constraints.</p>';
   html += '</div>';
+
+  // 6. Dedicated Caution / Hazy Blocks — every insight below 65%
+  // confidence (or carrying any deduction at all), collected in one place
+  // so low-confidence output is never silently blended in with the rest.
+  const cautionEntries = Object.values(a.confidence).filter(c => c.flagged);
+  html += '<h3>Caution / Hazy Blocks</h3>';
+  html += cautionEntries.length
+    ? cautionEntries.map(careerCautionBlockHtml).join('')
+    : '<p style="color:#2e7d32;">No insight above fell below the 65% confidence threshold — no caution blocks to show.</p>';
 
   // Current Dasha context (optional, if available)
   if (a.dashaAvailable) {

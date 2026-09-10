@@ -5,6 +5,64 @@ clear what's real vs. deferred at any point.
 
 ## Done
 
+- **Career tab: Dasha/Bhukti overlay, hybrid career spectrum, and
+  confidence/caution scoring** (`js/careerTab.js`, `js/ui.js`): extends
+  last round's Career tab with the four items you specified, still
+  additive-only — no existing calculation file touched.
+  - **Rule D (Dynamic Dasha/Bhukti overlay)**: the static Job/Business
+    scores are now blended with an Active Period Score computed the same
+    way from the CURRENT Mahadasha and Antardasha lords' own "scripts"
+    (lord + its own Star Lord + its own Sub Lord) — `Final Score =
+    0.4×Static + 0.4×Bhukti + 0.2×Dasha`, per side. Two period-conflict
+    alerts are checked: static strongly favoring Business (≥20-point gap)
+    while the Bhukti lord's script strongly hits Career Obstacle houses
+    (2+ of 5/8/12); static strongly favoring Job while the Bhukti lord's
+    script strongly hits the Resignation/Break houses (2+ of 1/5/9).
+    Falls back to the static-only score when no dasha is available,
+    clearly labeled either way.
+  - **Rule E (Hybrid career spectrum)**: the same combined house union
+    scored against four overlapping patterns — Corporate (6,10,11, 7
+    absent), Independent Business (7,10,11, 6 absent), Freelancing (6, 7,
+    AND 3 all present), Equity/Partnership (7,8,11) — shown as a 4-bar
+    percentage spectrum (not mutually exclusive) plus a single best-fit
+    classification checked in priority order, with a graceful fallback
+    ("closest fit") when no pattern cleanly matches.
+  - **Rule F (Confidence & Caution scoring)**: every insight (Job/Business,
+    each of the 3 signal checks, Workspace Direction) starts at 100%
+    confidence and loses points per a documented rule set (−25% for a Sub
+    Lord signifying both a supporting and an obstacle house at once, −15%
+    for a Sub Lord sitting in a house with no primary career
+    signification, −20% for the Job/Business insight specifically when
+    the static reading and the active Bhukti lord's own leaning disagree).
+    Anything under 65%, or carrying any deduction at all, is surfaced
+    inline (a small caution tag next to the result) AND collected into a
+    dedicated "Caution / Hazy Blocks" section — distinct amber/dashed
+    styling, feature name, status badge, itemized reasoning, and a
+    feature-specific mitigation suggestion — never silently smoothed over.
+  - **Rule C demotion**: the Workspace Direction widget is relabeled
+    "Practical Advice & Secondary / Optional Alignment Strategy" with a
+    permanent disclaimer ("Directional alignments are secondary
+    astrological factors and should be secondary to practical
+    room/property constraints.") always shown, not just when flagged.
+  - All percentages/scores rounded to the nearest 5 throughout, per
+    explicit request (`round5()` helper).
+  - **Real bug found and fixed during testing**: `analyzeForeignOpportunity()`
+    computed its own `chain6`/`chain10` cusp chains internally but never
+    returned them — invisible before because nothing else read those
+    fields, but the new confidence system's `chain6.cslSubLord` access
+    crashed with a clear stack trace the moment it was wired in. Fixed by
+    adding `chain6, chain10` to that function's existing return object
+    (purely additive — the fields it already returned are unchanged, nothing
+    that previously read this function's output is affected).
+  - Verified via Playwright end-to-end (Default Values → Career tab, zero
+    manual clicks needed thanks to the auto-populate wiring from the
+    previous round): all new sections render with internally consistent
+    numbers (e.g. Job/Business 40/60 whose components trace back exactly
+    through the printed Static/Bhukti/Dasha arithmetic; the 4-bar spectrum
+    summing to 100%; 5 caution blocks each showing real per-Sub-Lord
+    reasoning), no console errors, and the full pre-existing regression
+    suite (Main tab, other methodology tabs, Event Analysis) still passes
+    unchanged.
 - **All analysis tabs auto-populate on data submit/load, plus a
   step-by-step calculation trace on the Career tab** (`js/ui.js`): two
   related UX fixes, both additive.
