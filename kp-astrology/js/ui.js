@@ -1064,11 +1064,36 @@ function renderDashaLevelsTab() {
   let html = renderLogicDetails(DASHA_LOGIC_TEXT);
   html += `<p><strong>Birth Nakshatra:</strong> ${dasha.birthNakshatra.name} (Star Lord: ${dasha.birthNakshatra.starLord})</p>`;
   html += `<p><strong>Dasha Balance at Birth:</strong> ${dasha.balance.years}y ${dasha.balance.months}m ${dasha.balance.days}d</p>`;
-  html += '<p style="font-size:0.85em;color:#666;">Click a lord to open its sub-periods in a table next to it, down to Sookshmadasha (4th level). Times are local clock time at the birth place (from the Chart &amp; Analysis tab\'s timezone setting), or UTC if none is set. "Age at Start" is the person\'s age (years-months-days) when that period begins.</p>';
+  html += '<p style="font-size:0.85em;color:#666;">All 4 levels (Mahadasha, Antardasha, Pratyantardasha, Sookshmadasha) open by default, following whichever period is active right now — the row for the CURRENT time period is highlighted in orange at every level. Click any other lord to open its own sub-periods instead. Times are local clock time at the birth place (from the Chart &amp; Analysis tab\'s timezone setting), or UTC if none is set. "Age at Start" is the person\'s age (years-months-days) when that period begins.</p>';
   html += '<div class="dasha-columns" id="dashaLevelsColumns"></div>';
   el('dashaLevelsOutput').innerHTML = html;
 
   renderDashaColumn(0, dasha.mahadashas);
+  autoExpandCurrentDashaPath(dasha);
+}
+
+// Automatically opens the column chain (Antardasha -> Pratyantardasha ->
+// Sookshmadasha) for whichever period actually contains "now" at each
+// level, so all 4 levels are visible by default instead of requiring 3
+// clicks. Simply invokes the same click handler each row already has —
+// no separate rendering path to keep in sync.
+function autoExpandCurrentDashaPath(dasha) {
+  const now = new Date();
+  let periods = dasha.mahadashas;
+  let level = 0;
+  while (true) {
+    const idx = periods.findIndex(p => now >= p.start && now < p.end);
+    if (idx < 0) break;
+    const columnsEl = el('dashaLevelsColumns');
+    const col = columnsEl.children[level];
+    if (!col) break;
+    const btn = col.querySelector(`.dasha-lord-link[data-index="${idx}"]`);
+    if (!btn) break; // leaf level (Sookshmadasha) has no link — nothing more to expand
+    btn.click();
+    const childKey = DASHA_LEVEL_CHILD_KEYS[level];
+    periods = periods[idx][childKey];
+    level++;
+  }
 }
 
 // childKeys[level] names the array holding the next level down; level 3
@@ -1104,7 +1129,7 @@ function dashaLocalParts(date) {
 function formatDashaMoment(date) {
   const p = dashaLocalParts(date);
   const pad = n => String(n).padStart(2, '0');
-  return `${p.year}-${pad(p.month)}-${pad(p.day)} ${pad(p.hour)}:${pad(p.minute)}${p.label ? ' ' + p.label : ''}`;
+  return `${p.year}-${pad(p.month)}-${pad(p.day)} ${pad(p.hour)}:${pad(p.minute)}`;
 }
 
 // Calendar (Y-M-D) age, ignoring time-of-day — the conventional way an age
@@ -1133,6 +1158,7 @@ function renderDashaColumn(level, periods) {
   const birthParts = dashaLocalParts(dashaLevelsState.birthDateTime);
   const childKey = DASHA_LEVEL_CHILD_KEYS[level]; // undefined at the Sookshmadasha (leaf) column
 
+  const now = new Date();
   let html = `<table><thead><tr><th>${DASHA_LEVEL_NAMES[level]}</th><th>Start</th><th>End</th><th>Age at Start</th></tr></thead><tbody>`;
   periods.forEach((p, i) => {
     const age = calendarAgeYMD(birthParts, dashaLocalParts(p.start));
@@ -1140,7 +1166,8 @@ function renderDashaColumn(level, periods) {
     const lordCell = childKey
       ? `<button type="button" class="dasha-lord-link" data-index="${i}">${p.lord}</button>`
       : p.lord;
-    html += `<tr><td>${lordCell}</td><td>${formatDashaMoment(p.start)}</td><td>${formatDashaMoment(p.end)}</td><td>${ageText}</td></tr>`;
+    const isCurrent = now >= p.start && now < p.end;
+    html += `<tr class="${isCurrent ? 'dasha-row-current' : ''}"><td>${lordCell}</td><td>${formatDashaMoment(p.start)}</td><td>${formatDashaMoment(p.end)}</td><td>${ageText}</td></tr>`;
   });
   html += '</tbody></table>';
 

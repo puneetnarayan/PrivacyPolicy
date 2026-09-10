@@ -5,6 +5,32 @@ clear what's real vs. deferred at any point.
 
 ## Done
 
+- **Vimshottari Dasha (4 Levels) tab: auto-open current path, orange
+  current-period highlight, dropped UTC-offset display** (`js/ui.js`,
+  `index.html`): three small UX fixes, additive only.
+  - `autoExpandCurrentDashaPath()` now runs right after the initial
+    Mahadasha column renders — it walks whichever period actually
+    contains "now" at each level and clicks through it programmatically
+    (reusing each row's own existing click handler, not a separate
+    render path), so all 4 columns (Mahadasha/Antardasha/
+    Pratyantardasha/Sookshmadasha) are open by default instead of
+    requiring 3 manual clicks. Manually clicking a different lord still
+    works exactly as before (truncates and rebuilds columns after it).
+  - Every column's rows now check `now >= period.start && now <
+    period.end` and add a `.dasha-row-current` class (orange background,
+    bold text) — this is computed per-row from the actual date range, not
+    from a tracked "path index", so it stays correct even if the user
+    navigates to a different branch (nothing lights up there, correctly,
+    since that branch isn't the real current period).
+  - `formatDashaMoment()` no longer appends the "UTC+5:30"/"UTC" suffix
+    to Start/End cells — the offset is still used correctly to compute
+    the displayed local time, it's just not shown as text anymore.
+  - Verified via Playwright: a fresh Refresh auto-opens all 4 columns
+    with a real orange-highlighted row at every level (matching the
+    actual current Mahadasha/Antardasha/Pratyantardasha/Sookshmadasha),
+    no "UTC" text anywhere in the columns, manual navigation to a
+    different branch still truncates/rebuilds correctly, and the full
+    existing regression suite still passes.
 - **Career tab: Dasha/Bhukti overlay, hybrid career spectrum, and
   confidence/caution scoring** (`js/careerTab.js`, `js/ui.js`): extends
   last round's Career tab with the four items you specified, still
