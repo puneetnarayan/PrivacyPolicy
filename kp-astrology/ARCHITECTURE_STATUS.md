@@ -5,6 +5,21 @@ clear what's real vs. deferred at any point.
 
 ## Done
 
+- **Vimshottari Dasha (4 Levels) tab: light-yellow selection highlight**
+  (`js/ui.js`, `index.html`): clicking any lord to open its sub-periods
+  now also highlights that clicked row in light yellow
+  (`.dasha-row-selected`), at whichever level it was clicked, in addition
+  to (not instead of) the existing orange current-period highlight. If
+  the current-period row itself is the one clicked, it keeps its orange
+  background (verified: that row ends up carrying both
+  `dasha-row-current` and `dasha-row-selected` classes, and the CSS rule
+  order — current declared after selected — makes orange win on the
+  tie, exactly as requested). Verified via Playwright: clicking a
+  non-current row turns it light yellow (`rgb(255, 249, 176)`) while the
+  real current row elsewhere stays orange (`rgb(255, 179, 71)`);
+  clicking the current row itself stays orange; full existing
+  regression suite (auto-open, manual column navigation/truncation)
+  still passes unchanged.
 - **Vimshottari Dasha (4 Levels) tab: auto-open current path, orange
   current-period highlight, dropped UTC-offset display** (`js/ui.js`,
   `index.html`): three small UX fixes, additive only.

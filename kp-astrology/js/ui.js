@@ -1064,7 +1064,7 @@ function renderDashaLevelsTab() {
   let html = renderLogicDetails(DASHA_LOGIC_TEXT);
   html += `<p><strong>Birth Nakshatra:</strong> ${dasha.birthNakshatra.name} (Star Lord: ${dasha.birthNakshatra.starLord})</p>`;
   html += `<p><strong>Dasha Balance at Birth:</strong> ${dasha.balance.years}y ${dasha.balance.months}m ${dasha.balance.days}d</p>`;
-  html += '<p style="font-size:0.85em;color:#666;">All 4 levels (Mahadasha, Antardasha, Pratyantardasha, Sookshmadasha) open by default, following whichever period is active right now — the row for the CURRENT time period is highlighted in orange at every level. Click any other lord to open its own sub-periods instead. Times are local clock time at the birth place (from the Chart &amp; Analysis tab\'s timezone setting), or UTC if none is set. "Age at Start" is the person\'s age (years-months-days) when that period begins.</p>';
+  html += '<p style="font-size:0.85em;color:#666;">All 4 levels (Mahadasha, Antardasha, Pratyantardasha, Sookshmadasha) open by default, following whichever period is active right now — the row for the CURRENT time period is highlighted in orange at every level (this never changes). Click any lord to open its own sub-periods instead — whichever row you click is highlighted in light yellow at that level. Times are local clock time at the birth place (from the Chart &amp; Analysis tab\'s timezone setting), or UTC if none is set. "Age at Start" is the person\'s age (years-months-days) when that period begins.</p>';
   html += '<div class="dasha-columns" id="dashaLevelsColumns"></div>';
   el('dashaLevelsOutput').innerHTML = html;
 
@@ -1180,7 +1180,9 @@ function renderDashaColumn(level, periods) {
   col.querySelectorAll('.dasha-lord-link').forEach(btn => {
     btn.addEventListener('click', () => {
       col.querySelectorAll('.dasha-lord-link').forEach(b => b.classList.remove('active'));
+      col.querySelectorAll('tr').forEach(row => row.classList.remove('dasha-row-selected'));
       btn.classList.add('active');
+      btn.closest('tr').classList.add('dasha-row-selected');
       const period = periods[Number(btn.dataset.index)];
       renderDashaColumn(level + 1, period[childKey]);
     });
