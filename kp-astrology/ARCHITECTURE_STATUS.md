@@ -721,6 +721,20 @@ clear what's real vs. deferred at any point.
   saved it (no Chart & Analysis interaction at all), confirmed the Copy
   button still works, and confirmed Load repopulates both tabs' fields.
 
+- **Bug fix — Load silently failing to populate Birth Date**: `<input
+  type="date">` only accepts ISO `yyyy-mm-dd`; any other format is
+  silently rejected by the browser (the field is left blank, no error).
+  A CSV whose `BirthDate` column was written or hand-edited in `dd-mm-yyyy`
+  or `dd/mm/yyyy` form (e.g. `02-06-1975`) therefore failed to populate
+  Birth Date on both the Saved Natives and Chart & Analysis tabs when
+  "Load" was clicked, even though Latitude/Longitude/Time/Timezone loaded
+  fine. Added `normalizeDateForInput()` in `js/ui.js`, applied in
+  `loadNativeRecord()` before assigning `birthLocalDate`/`nativeBirthDate`,
+  which converts `dd-mm-yyyy`/`dd/mm/yyyy` to ISO first (passes through
+  strings already in ISO form unchanged). Verified with a CSV containing
+  `02-06-1975`: Birth Date now populates as `1975-06-02` on both tabs and
+  the chart regenerates correctly.
+
 ## Deferred (by your explicit decision, not overlooked)
 
 - **BNN calculations**: not implemented — need a reference for what this

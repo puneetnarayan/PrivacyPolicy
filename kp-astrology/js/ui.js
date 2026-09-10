@@ -1997,6 +1997,21 @@ async function saveCurrentNativeToCsv() {
 // identity fields from a saved record, then immediately regenerates the
 // full chart and every dependent tab — same as clicking "Generate Full
 // Chart" yourself, so selecting a native is a genuine one-click load.
+//
+// <input type="date"> only accepts ISO yyyy-mm-dd — it silently ignores
+// (leaves blank) any other format, so a CSV containing dd-mm-yyyy or
+// dd/mm/yyyy dates (e.g. hand-typed or edited outside this app) would
+// otherwise fail to populate. Normalize to ISO before assigning.
+function normalizeDateForInput(raw) {
+  const s = String(raw || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  let m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/); // dd-mm-yyyy
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); // dd/mm/yyyy
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  return s;
+}
+
 function loadNativeRecord(rec) {
   el('nativeName').value = rec.name || '';
   el('nativeSex').value = rec.sex || '';
@@ -2006,7 +2021,7 @@ function loadNativeRecord(rec) {
   el('nativeCountry').value = rec.country || '';
   el('nativeNotes').value = rec.notes || '';
 
-  el('birthLocalDate').value = rec.birthDate || '';
+  el('birthLocalDate').value = normalizeDateForInput(rec.birthDate);
   el('birthLocalTime').value = rec.birthTime || '';
   el('birthLat').value = rec.latitude || '';
   el('birthLon').value = rec.longitude || '';
@@ -2015,7 +2030,7 @@ function loadNativeRecord(rec) {
   if (rec.timezoneMode === 'iana') setIanaZoneSelectValue(el('ianaZone'), rec.utcOffset || '');
   else el('utcOffset').value = rec.utcOffset || '';
 
-  el('nativeBirthDate').value = rec.birthDate || '';
+  el('nativeBirthDate').value = normalizeDateForInput(rec.birthDate);
   el('nativeBirthTime').value = rec.birthTime || '';
   el('nativeLat').value = rec.latitude || '';
   el('nativeLon').value = rec.longitude || '';
