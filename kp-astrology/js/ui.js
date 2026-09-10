@@ -1991,13 +1991,13 @@ function renderSavedNativesTable() {
     .filter(({ r }) => nativeMatchesQuery(r, query));
 
   let html = `<p style="font-size:0.85em;color:#666;">${filtered.length} of ${savedNativesState.records.length} record(s) shown.</p>`;
-  html += '<table><thead><tr><th>Name</th><th>Sex</th><th>City</th><th>State</th><th>Country</th><th>Birth Date</th><th>Birth Time</th><th>Notes</th><th></th></tr></thead><tbody>';
+  html += '<div style="overflow-x:auto;"><table><thead><tr><th>Name</th><th>Sex</th><th>City</th><th>State</th><th>Country</th><th>Birth Date</th><th>Birth Time</th><th>Latitude</th><th>Longitude</th><th>Timezone Mode</th><th>UTC Offset</th><th>Notes</th><th></th></tr></thead><tbody>';
   filtered.forEach(({ r, i }) => {
-    html += `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.sex)}</td><td>${escapeHtml(r.city)}</td><td>${escapeHtml(r.state)}</td><td>${escapeHtml(r.country)}</td><td>${escapeHtml(r.birthDate)}</td><td>${escapeHtml(r.birthTime)}</td><td>${escapeHtml(r.notes)}</td>` +
+    html += `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.sex)}</td><td>${escapeHtml(r.city)}</td><td>${escapeHtml(r.state)}</td><td>${escapeHtml(r.country)}</td><td>${escapeHtml(r.birthDate)}</td><td>${escapeHtml(r.birthTime)}</td><td>${escapeHtml(r.latitude)}</td><td>${escapeHtml(r.longitude)}</td><td>${escapeHtml(r.timezoneMode)}</td><td>${escapeHtml(r.utcOffset)}</td><td>${escapeHtml(r.notes)}</td>` +
       `<td><button type="button" class="native-load-btn" data-index="${i}">Load</button> <button type="button" class="native-delete-btn" data-index="${i}">Delete</button></td></tr>`;
   });
-  if (!filtered.length) html += '<tr><td colspan="9">No records yet — connect/start a CSV file above, then Save the current chart\'s native.</td></tr>';
-  html += '</tbody></table>';
+  if (!filtered.length) html += '<tr><td colspan="13">No records yet — connect/start a CSV file above, then Save the current chart\'s native.</td></tr>';
+  html += '</tbody></table></div>';
   el('savedNativesTable').innerHTML = html;
 
   el('savedNativesTable').querySelectorAll('.native-load-btn').forEach(btn => {
